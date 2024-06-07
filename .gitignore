@@ -1,0 +1,4 @@
+# Ignore binary files which have not been converted into .bin
+
+*.proj
+*.rsrc
