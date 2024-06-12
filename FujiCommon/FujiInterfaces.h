@@ -38,85 +38,85 @@
 #define NELEMENTS(a) (sizeof(a)/sizeof(a[0]))
 
 struct FujiConData {
-	volatile IOParam   iopb;
-	short              fRefNum;
+    volatile IOParam   iopb;
+    short              fRefNum;
 } ;
 
 struct FujiSerData {
-	struct FujiConData conn;
-	OSType             id;
+    struct FujiConData conn;
+    OSType             id;
 
-	short              mainDrvrRefNum;
+    short              mainDrvrRefNum;
 
-	struct {
-		OSType         id;
-		char           src;
-		char           dst;
-		short          avail;
-		long           reserved;
-		char           payload[500];
-	} readData;
+    struct {
+        OSType         id;
+        char           src;
+        char           dst;
+        short          avail;
+        long           reserved;
+        char           payload[500];
+    } readData;
 
-	volatile long      readPos;
-	volatile long      readLeft;
-	volatile long      readAvail;
+    volatile long      readPos;
+    volatile long      readLeft;
+    volatile long      readAvail;
 
-	volatile Boolean   scheduleDriverWake;
+    volatile Boolean   scheduleDriverWake;
 
-	long               bytesWritten;
-	long               bytesRead;
+    long               bytesWritten;
+    long               bytesRead;
 
-	unsigned char vblCount;
+    unsigned char vblCount;
 
-	#if USE_WRITE_BUFFER
-		struct {
-			OSType     id;
-			char       src;
-			char       dst;
-			short      length;
-			long       reserved;
-			char       payload[500];
-		} writeData;
+    #if USE_WRITE_BUFFER
+        struct {
+            OSType     id;
+            char       src;
+            char       dst;
+            short      length;
+            long       reserved;
+            char       payload[500];
+        } writeData;
 
-		volatile short writePos;
-		unsigned long  writeLastTicks;
-	#endif
+        volatile short writePos;
+        unsigned long  writeLastTicks;
+    #endif
 } ;
 
 typedef struct FujiSerData **FujiSerDataHndl;
 
 typedef union {
-	char    bytes[512 ];
-	OSType values[512 / sizeof(OSType)];
+    char    bytes[512 ];
+    OSType values[512 / sizeof(OSType)];
 } SectorBuffer;
 
 typedef union {
-	char bytes[20];
-	struct {
-		// Format of FujiNet sector tags
-		OSType          id;
-		unsigned char   vdev;
-		unsigned char   cmd;
-		short           len;
-	} msg;
-	struct {
-		// Format of MacOS sector tags
-		unsigned long fileNum;
-		char          forkType;
-		char          fileAttr;
-		short         relBlkNum;
-		unsigned long absBlkNum;
-	} fsTags;
+    char bytes[20];
+    struct {
+        // Format of FujiNet sector tags
+        OSType          id;
+        unsigned char   vdev;
+        unsigned char   cmd;
+        short           len;
+    } msg;
+    struct {
+        // Format of MacOS sector tags
+        unsigned long fileNum;
+        char          forkType;
+        char          fileAttr;
+        short         relBlkNum;
+        unsigned long absBlkNum;
+    } fsTags;
 } TagBuffer;
 
 FujiSerDataHndl getFujiSerialDataHndl (void);
 
 #ifdef THINK_C
-	#define	Declare_LoMem(type, name, address)	type (name) : (address)
+    #define Declare_LoMem(type, name, address)  type (name) : (address)
 #elif defined(THINK_CPLUS)
-	#define Declare_LoMem(type, name, address)	static type &(name) = *(type *) (address)
+    #define Declare_LoMem(type, name, address)  static type &(name) = *(type *) (address)
 #else
-	#error LoMem requires either C++ or THINK C
+    #error LoMem requires either C++ or THINK C
 #endif
 
 Declare_LoMem(volatile unsigned long,  Ticks,       0x16A);

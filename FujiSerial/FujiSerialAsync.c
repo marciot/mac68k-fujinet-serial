@@ -78,90 +78,90 @@ OSErr doStatus  (CntrlParam *, DCtlEntry *);
  */
 
 void main() {
-	asm {
+    asm {
 
-		// Driver Header: "Inside Macintosh: Devices", p I-25
+        // Driver Header: "Inside Macintosh: Devices", p I-25
 
-		dc.w    DFlags                             ; flags
-		dc.w    60                                 ; periodic ticks
-		dc.w    0x0000                             ; DA event mask
-		dc.w    0x0000                             ; menuID of DA menu
-		dc.w    @DOpen    +  8                     ; open offset
-		dc.w    @DPrime   + 10                     ; prime offset
-		dc.w    @DControl + 12                     ; control offset
-		dc.w    @DStatus  + 14                     ; status offset
-		dc.w    @DClose   + 16                     ; close offset
-		dc.b    "\p.Fuji"                          ; driver name
+        dc.w    DFlags                             ; flags
+        dc.w    60                                 ; periodic ticks
+        dc.w    0x0000                             ; DA event mask
+        dc.w    0x0000                             ; menuID of DA menu
+        dc.w    @DOpen    +  8                     ; open offset
+        dc.w    @DPrime   + 10                     ; prime offset
+        dc.w    @DControl + 12                     ; control offset
+        dc.w    @DStatus  + 14                     ; status offset
+        dc.w    @DClose   + 16                     ; close offset
+        dc.b    "\p.Fuji"                          ; driver name
 
-		// Driver Dispatch: "Inside Macintosh: Devices", p I-29
+        // Driver Dispatch: "Inside Macintosh: Devices", p I-29
 
-	DOpen:
-		movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
-		movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
-		bsr     doOpen                             ; call linked C function
-		addq    #8,sp                              ; clean up the stack
-		movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
-		rts
+    DOpen:
+        movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
+        movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
+        bsr     doOpen                             ; call linked C function
+        addq    #8,sp                              ; clean up the stack
+        movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
+        rts
 
-	DPrime:
-		movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
-		movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
-		clr.l   IOParam.ioActCount(a0)             ; clear the bytes processed value
-		bsr     doPrime                            ; call linked C function
-		addq    #8,sp                              ; clean up the stack
-		movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
-		bra     @IOReturn
+    DPrime:
+        movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
+        movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
+        clr.l   IOParam.ioActCount(a0)             ; clear the bytes processed value
+        bsr     doPrime                            ; call linked C function
+        addq    #8,sp                              ; clean up the stack
+        movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
+        bra     @IOReturn
 
-	DControl:
-		movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
-		movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
-		bsr     doControl                          ; call linked C function
-		addq    #8,sp                              ; clean up the stack
-		movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
-		cmpi.w  #killCode,CntrlParam.csCode(a0)    ; test for KillIO call (special case)
-		bne     @IOReturn
-		rts                                        ; KillIO must always return via RTS
+    DControl:
+        movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
+        movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
+        bsr     doControl                          ; call linked C function
+        addq    #8,sp                              ; clean up the stack
+        movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
+        cmpi.w  #killCode,CntrlParam.csCode(a0)    ; test for KillIO call (special case)
+        bne     @IOReturn
+        rts                                        ; KillIO must always return via RTS
 
-	DStatus:
-		movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
-		movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
-		bsr     doStatus                           ; call linked C function
-		addq    #8,sp                              ; clean up the stack
-		movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
+    DStatus:
+        movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
+        movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
+        bsr     doStatus                           ; call linked C function
+        addq    #8,sp                              ; clean up the stack
+        movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
 
-	IOReturn:
-		move.w	CntrlParam.ioTrap(a0),d1
-		btst    #noQueueBit,d1                     ; immediate calls are not queued, and must RTS
-		beq     @Queued                            ; branch if queued
+    IOReturn:
+        move.w  CntrlParam.ioTrap(a0),d1
+        btst    #noQueueBit,d1                     ; immediate calls are not queued, and must RTS
+        beq     @Queued                            ; branch if queued
 
-	NotQueued:
-		tst.w   d0                                 ; test asynchronous return result
-		ble     @ImmedRTS                          ; result must be <= 0
-		clr.w   d0                                 ; "in progress" result (> 0) not passed back
+    NotQueued:
+        tst.w   d0                                 ; test asynchronous return result
+        ble     @ImmedRTS                          ; result must be <= 0
+        clr.w   d0                                 ; "in progress" result (> 0) not passed back
 
-	ImmedRTS:
-		move.w  d0,IOParam.ioResult(a0)            ; for immediate calls you must explicitly
-		                                           ; place the result in the ioResult field
-		rts
+    ImmedRTS:
+        move.w  d0,IOParam.ioResult(a0)            ; for immediate calls you must explicitly
+                                                   ; place the result in the ioResult field
+        rts
 
-	Queued:
-		tst.w   d0                                 ; test asynchronous return result
-		ble     @MyIODone                          ; I/O is complete if result <= 0
-		clr.w   d0                                 ; "in progress" result (> 0) not passed back
-		rts
+    Queued:
+        tst.w   d0                                 ; test asynchronous return result
+        ble     @MyIODone                          ; I/O is complete if result <= 0
+        clr.w   d0                                 ; "in progress" result (> 0) not passed back
+        rts
 
-	MyIODone:
-		move.l  JIODone,-(SP)                      ; push IODone jump vector onto stack
-		rts
+    MyIODone:
+        move.l  JIODone,-(SP)                      ; push IODone jump vector onto stack
+        rts
 
-	DClose:
-		movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
-		movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
-		bsr     doClose                            ; call linked C function
-		addq    #8,sp                              ; clean up the stack
-		movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
-		;rts                                       ; close is always immediate, must return via RTS
-	}
+    DClose:
+        movem.l a0-a1,-(sp)                        ; save ParmBlkPtr, DCtlPtr across function call
+        movem.l a0-a1,-(sp)                        ; push ParmBlkPtr, DCtlPtr for C
+        bsr     doClose                            ; call linked C function
+        addq    #8,sp                              ; clean up the stack
+        movem.l (sp)+,a0-a1                        ; restore ParmBlkPtr, DCtlPtr
+        ;rts                                       ; close is always immediate, must return via RTS
+    }
 }
 
 /********** Completion and VBL Routines **********/
@@ -195,112 +195,112 @@ static Boolean    takeWakeMutex (void);
 static void       releaseWakeMutex (void);
 
 static void _vblRoutines (void) {
-	asm {
-		// Use extern entry point to keep Symantec C++ from adding a stack frame.
+    asm {
+        // Use extern entry point to keep Symantec C++ from adding a stack frame.
 
-		extern fujiStartVBL:
-			lea      @dcePtr, a0
-			tst.l    (a0)                              ; already installed?
-			bne      @skipInstall
-			lea      @dcePtr, a0
-			move.l   4(sp), (a0)+                      ; set dcePtr to devCtlPtr
-			lea      @callFujiVBL,a1                   ; address to entry
-			move.l   a1, VBLTask.vblAddr(a0)           ; update task address
-			move.w   #VBL_TICKS,VBLTask.vblCount(a0)   ; reset vblCount
-			_VInstall
-		skipInstall:
-			rts
+        extern fujiStartVBL:
+            lea      @dcePtr, a0
+            tst.l    (a0)                              ; already installed?
+            bne      @skipInstall
+            lea      @dcePtr, a0
+            move.l   4(sp), (a0)+                      ; set dcePtr to devCtlPtr
+            lea      @callFujiVBL,a1                   ; address to entry
+            move.l   a1, VBLTask.vblAddr(a0)           ; update task address
+            move.w   #VBL_TICKS,VBLTask.vblCount(a0)   ; reset vblCount
+            _VInstall
+        skipInstall:
+            rts
 
-		extern getVBLTask:
-			lea      @vblTask, a0
-			move.l   a0, d0
-			rts
+        extern getVBLTask:
+            lea      @vblTask, a0
+            move.l   a0, d0
+            rts
 
-		extern schedVBLTask:
-			lea      @vblTask, a0
-			move.w   #1,VBLTask.vblCount(a0)           ; reset vblCount
-			rts
+        extern schedVBLTask:
+            lea      @vblTask, a0
+            move.w   #1,VBLTask.vblCount(a0)           ; reset vblCount
+            rts
 
-		extern getMainDCE:
-			move.l (@dcePtr), d0                       ; load DCE ptr
-			rts
+        extern getMainDCE:
+            move.l (@dcePtr), d0                       ; load DCE ptr
+            rts
 
-		dcePtr:
-			dc.l     0  // Placeholder for dcePtr (4 bytes)
+        dcePtr:
+            dc.l     0  // Placeholder for dcePtr (4 bytes)
 
-		vblTask:
-			// VBLTask Structure (14 bytes)
-			dc.l     0                                 ; qLink
-			dc.w vType                                 ; qType
-			dc.l     0                                 ; vblAddr
-			dc.w     0                                 ; vblCount
-			dc.w     0                                 ; vblPhase
+        vblTask:
+            // VBLTask Structure (14 bytes)
+            dc.l     0                                 ; qLink
+            dc.w vType                                 ; qType
+            dc.l     0                                 ; vblAddr
+            dc.w     0                                 ; vblCount
+            dc.w     0                                 ; vblPhase
 
-		mutexFlags:
-			dc.w     0
+        mutexFlags:
+            dc.w     0
 
-			// VBL Requirements: One entry, a0 will point to the VBLTask;
-			// this routine must preserve registers other than a0-a3/d0-d3
+            // VBL Requirements: One entry, a0 will point to the VBLTask;
+            // this routine must preserve registers other than a0-a3/d0-d3
 
-			// ioCompletion Requirements: One entry, a0 will point to
-			// parameter block and d0 contain the result; this routine
-			// must preserve registers other than a0-a1/d0-d2
+            // ioCompletion Requirements: One entry, a0 will point to
+            // parameter block and d0 contain the result; this routine
+            // must preserve registers other than a0-a1/d0-d2
 
-		extern complFlushOut:
-			lea     fujiFlushDone,a1                   ; address of C function
-			bra.s   @callRoutineC
+        extern complFlushOut:
+            lea     fujiFlushDone,a1                   ; address of C function
+            bra.s   @callRoutineC
 
-		extern complReadIn:
-			lea     fujiReadDone,a1                    ; address of C function
-			bra.s   @callRoutineC
+        extern complReadIn:
+            lea     fujiReadDone,a1                    ; address of C function
+            bra.s   @callRoutineC
 
-		callFujiVBL:
-			lea     fujiVBLTask,a1                     ; address of C function
-			;bra.s   @callRoutineC
+        callFujiVBL:
+            lea     fujiVBLTask,a1                     ; address of C function
+            ;bra.s   @callRoutineC
 
-			// callRoutineC saves registers and passes control to the C
-			// function whose address is a1 with a0 as the 1st argument
-		callRoutineC:
-			movem.l a2-a7/d3-d7,-(sp)                  ; save registers
-			move.l a0,-(sp)                            ; push a0 for C
-			jsr     (a1)                               ; call C function
-			addq    #4,sp                              ; clean up the stack
-			movem.l (sp)+,a2-a7/d3-d7                  ; restore registers
-			rts
+            // callRoutineC saves registers and passes control to the C
+            // function whose address is a1 with a0 as the 1st argument
+        callRoutineC:
+            movem.l a2-a7/d3-d7,-(sp)                  ; save registers
+            move.l a0,-(sp)                            ; push a0 for C
+            jsr     (a1)                               ; call C function
+            addq    #4,sp                              ; clean up the stack
+            movem.l (sp)+,a2-a7/d3-d7                  ; restore registers
+            rts
 
-		extern ioIsComplete:
-			move.w 8(sp),d0                            ; load result code into d0
-			move.l 4(sp),a1                            ; load DCtlPtr into a1
-			move.l  JIODone,-(sp)                      ; push IODone jump vector onto stack
-			rts
+        extern ioIsComplete:
+            move.w 8(sp),d0                            ; load result code into d0
+            move.l 4(sp),a1                            ; load DCtlPtr into a1
+            move.l  JIODone,-(sp)                      ; push IODone jump vector onto stack
+            rts
 
-		extern takeVblMutex:
-			moveq #0, d0
-			bra.s @takeMutex
+        extern takeVblMutex:
+            moveq #0, d0
+            bra.s @takeMutex
 
-		extern takeWakeMutex:
-			moveq #1, d0
-			;bra.s @takeMutex
+        extern takeWakeMutex:
+            moveq #1, d0
+            ;bra.s @takeMutex
 
-		takeMutex:
-			lea @mutexFlags, a0
-			bset d0, (a0)
-			seq d0
-			rts
+        takeMutex:
+            lea @mutexFlags, a0
+            bset d0, (a0)
+            seq d0
+            rts
 
-		extern releaseVblMutex:
-			moveq #0, d0
-			bra.s @releaseMutex
+        extern releaseVblMutex:
+            moveq #0, d0
+            bra.s @releaseMutex
 
-		extern releaseWakeMutex:
-			moveq #1, d0
-			;bra.s @releaseMutex
+        extern releaseWakeMutex:
+            moveq #1, d0
+            ;bra.s @releaseMutex
 
-		releaseMutex:
-			lea @mutexFlags, a0
-			bclr d0, (a0)
-			;rts
-	}
+        releaseMutex:
+            lea @mutexFlags, a0
+            bclr d0, (a0)
+            ;rts
+    }
 }
 
 /* Given a driver unit number, checks the unit to table to determine whether it is
@@ -310,45 +310,45 @@ static void _vblRoutines (void) {
  */
 
 static void wakeUpDriver (short unitNum) {
-	Handle *table = (Handle*) UTableBase;
-	if (table [unitNum]) {
-    	DCtlEntry *dce = (DCtlEntry*) *table[unitNum];
+    Handle *table = (Handle*) UTableBase;
+    if (table [unitNum]) {
+        DCtlEntry *dce = (DCtlEntry*) *table[unitNum];
 
-    	#define CANDIDATE_DRIVER_FLAGS dRAMBasedMask | dOpenedMask | drvrActiveMask
+        #define CANDIDATE_DRIVER_FLAGS dRAMBasedMask | dOpenedMask | drvrActiveMask
 
-   	    if ((dce->dCtlFlags & CANDIDATE_DRIVER_FLAGS) == CANDIDATE_DRIVER_FLAGS) {
-	    	if ((dce->dCtlStorage != NULL) && ((*(FujiSerDataHndl)dce->dCtlStorage)->id == 'FUJI')) {
-				IOParam *pb = (IOParam *) dce->dCtlQHdr.qHead;
+        if ((dce->dCtlFlags & CANDIDATE_DRIVER_FLAGS) == CANDIDATE_DRIVER_FLAGS) {
+            if ((dce->dCtlStorage != NULL) && ((*(FujiSerDataHndl)dce->dCtlStorage)->id == 'FUJI')) {
+                IOParam *pb = (IOParam *) dce->dCtlQHdr.qHead;
 
-				// The following code is problematic, as there is a likelihood
-				// of the VBL interrupting the Device Manager while it is
-				// inserting an I/O request into the queue. The following checks
-				// seem to prevent a crash, but it is advisable to find a
-				// better way (maybe saving the dce and pb pointers for incomplete
-				// calls).
+                // The following code is problematic, as there is a likelihood
+                // of the VBL interrupting the Device Manager while it is
+                // inserting an I/O request into the queue. The following checks
+                // seem to prevent a crash, but it is advisable to find a
+                // better way (maybe saving the dce and pb pointers for incomplete
+                // calls).
 
-				if (pb && (pb->ioResult == ioInProgress)) {
-					OSErr err = doPrime (pb, dce);
-					if (err != ioInProgress) {
-						ioIsComplete (dce, err);
-					}
-				}
-			}
-		}
+                if (pb && (pb->ioResult == ioInProgress)) {
+                    OSErr err = doPrime (pb, dce);
+                    if (err != ioInProgress) {
+                        ioIsComplete (dce, err);
+                    }
+                }
+            }
+        }
     }
 }
 
 /* Wakes up all "FujiNet" drivers to give them a chance to complete queued I/O */
 
 static void wakeUpDrivers (void) {
-	if (takeWakeMutex()) {
-		releaseVblMutex();
-		wakeUpDriver (5); // Serial port A input
-		wakeUpDriver (6); // Serial port A output
-		releaseWakeMutex();
-	} else {
-		releaseVblMutex();
-	}
+    if (takeWakeMutex()) {
+        releaseVblMutex();
+        wakeUpDriver (5); // Serial port A input
+        wakeUpDriver (6); // Serial port A output
+        releaseWakeMutex();
+    } else {
+        releaseVblMutex();
+    }
 }
 
 /* Main VBL Task for the FujiNet serial driver. This task must run periodically
@@ -360,149 +360,149 @@ static void wakeUpDrivers (void) {
  */
 
 static void fujiVBLTask (VBLTask *vbl) {
-	const DCtlEntry *devCtlEnt = getMainDCE();
-	struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
-	long rdIndicator = -1, wrIndicator = -1;
+    const DCtlEntry *devCtlEnt = getMainDCE();
+    struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+    long rdIndicator = -1, wrIndicator = -1;
 
 #if USE_VBL_INDICATOR
-	long tkIndicator = LED_IDLE;
+    long tkIndicator = LED_IDLE;
 #endif
 
-	vbl->vblCount    = data->vblCount;
+    vbl->vblCount    = data->vblCount;
 
-	if (takeVblMutex()) {
-		if (data->conn.iopb.ioResult == noErr) {
-			if ((data->writePos > 0) && (!data->scheduleDriverWake)) {
+    if (takeVblMutex()) {
+        if (data->conn.iopb.ioResult == noErr) {
+            if ((data->writePos > 0) && (!data->scheduleDriverWake)) {
 
-				/* Figure out the source value:
-				 * -6 or -7  => 1
-				 * -8 or -9  => 2
-				 * otherwise => 3
-				 */
-				//short src = ((~devCtlEnt->dCtlRefNum) - 5) >> 1;
-				//if (src > 1) src = 3;
+                /* Figure out the source value:
+                 * -6 or -7  => 1
+                 * -8 or -9  => 2
+                 * otherwise => 3
+                 */
+                //short src = ((~devCtlEnt->dCtlRefNum) - 5) >> 1;
+                //if (src > 1) src = 3;
 
-				// Write out data that has been pending for a while
-				data->conn.iopb.ioBuffer     = (Ptr) &data->writeData;
-				data->conn.iopb.ioCompletion = (IOCompletionUPP)complFlushOut;
+                // Write out data that has been pending for a while
+                data->conn.iopb.ioBuffer     = (Ptr) &data->writeData;
+                data->conn.iopb.ioCompletion = (IOCompletionUPP)complFlushOut;
 
-				data->writeData.id           = MAC_FUJI_REQUEST_TAG;
-				data->writeData.src          = 0;
-				data->writeData.dst          = 0;
-				data->writeData.reserved     = 0;
-				data->writeData.length       = data->writePos;
+                data->writeData.id           = MAC_FUJI_REQUEST_TAG;
+                data->writeData.src          = 0;
+                data->writeData.dst          = 0;
+                data->writeData.reserved     = 0;
+                data->writeData.length       = data->writePos;
 
-				wrIndicator = LED_ASYNC_IO;
-				PBWriteAsync ((ParmBlkPtr)&data->conn.iopb);
-			}
+                wrIndicator = LED_ASYNC_IO;
+                PBWriteAsync ((ParmBlkPtr)&data->conn.iopb);
+            }
 
-			else if ((data->readLeft == 0) && (!data->scheduleDriverWake)) {
-				// Poll for new data
+            else if ((data->readLeft == 0) && (!data->scheduleDriverWake)) {
+                // Poll for new data
 
-				data->conn.iopb.ioBuffer     = (Ptr) &data->readData;
-				data->conn.iopb.ioCompletion = (IOCompletionUPP)complReadIn;
+                data->conn.iopb.ioBuffer     = (Ptr) &data->readData;
+                data->conn.iopb.ioCompletion = (IOCompletionUPP)complReadIn;
 
-				wrIndicator = LED_IDLE;
-				rdIndicator = LED_ASYNC_IO;
-				PBReadAsync((ParmBlkPtr)&data->conn.iopb);
-			}
+                wrIndicator = LED_IDLE;
+                rdIndicator = LED_ASYNC_IO;
+                PBReadAsync((ParmBlkPtr)&data->conn.iopb);
+            }
 
-			else {
-				// Unblock drivers
-				wakeUpDrivers();
-				data->scheduleDriverWake = false;
-			}
-		} // data->conn.iopb.ioResult == noErr
-		else {
+            else {
+                // Unblock drivers
+                wakeUpDrivers();
+                data->scheduleDriverWake = false;
+            }
+        } // data->conn.iopb.ioResult == noErr
+        else {
 #if USE_VBL_INDICATOR
-			tkIndicator   = LED_ERROR;
+            tkIndicator   = LED_ERROR;
 #endif
-			// On error, keep waking the drivers so they can
-			// report the error but also slow the VBL Task
-			wakeUpDrivers();
-		}
-	} // takeVblMutex
+            // On error, keep waking the drivers so they can
+            // report the error but also slow the VBL Task
+            wakeUpDrivers();
+        }
+    } // takeVblMutex
 
 #if USE_VBL_INDICATOR
-	else {
-		tkIndicator = LED_BLKED_IO;
-	}
-	VBL_TASK_INDICATOR (tkIndicator);
+    else {
+        tkIndicator = LED_BLKED_IO;
+    }
+    VBL_TASK_INDICATOR (tkIndicator);
 #endif
 
-	if (rdIndicator >= 0) VBL_READ_INDICATOR (rdIndicator);
-	if (wrIndicator >= 0) VBL_WRIT_INDICATOR (wrIndicator);
+    if (rdIndicator >= 0) VBL_READ_INDICATOR (rdIndicator);
+    if (wrIndicator >= 0) VBL_WRIT_INDICATOR (wrIndicator);
 }
 
 /* Called after an asynchronous write to the FujiNet device has completed */
 
 static void fujiFlushDone (IOParam *pb) {
-	long wrIndicator = LED_ERROR;
-	if (pb->ioResult == noErr) {
+    long wrIndicator = LED_ERROR;
+    if (pb->ioResult == noErr) {
 
-		const DCtlEntry *devCtlEnt = getMainDCE();
-		struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+        const DCtlEntry *devCtlEnt = getMainDCE();
+        struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
 
-		data->writePos       = 0;
-		wrIndicator          = LED_IDLE;
+        data->writePos       = 0;
+        wrIndicator          = LED_IDLE;
 
-		// After writing data, immediately do a read if the buffer is empty
+        // After writing data, immediately do a read if the buffer is empty
 
-		if (data->readLeft == 0) {
-			pb->ioBuffer     = (Ptr) &data->readData;
-			pb->ioCompletion = (IOCompletionUPP)complReadIn;
+        if (data->readLeft == 0) {
+            pb->ioBuffer     = (Ptr) &data->readData;
+            pb->ioCompletion = (IOCompletionUPP)complReadIn;
 
-			VBL_READ_INDICATOR (LED_ASYNC_IO);
-			PBReadAsync((ParmBlkPtr)pb);
-			goto asyncExit;
-		}
-	}
-	releaseVblMutex();
-	schedVBLTask();
+            VBL_READ_INDICATOR (LED_ASYNC_IO);
+            PBReadAsync((ParmBlkPtr)pb);
+            goto asyncExit;
+        }
+    }
+    releaseVblMutex();
+    schedVBLTask();
 asyncExit:
-	VBL_WRIT_INDICATOR (wrIndicator);
+    VBL_WRIT_INDICATOR (wrIndicator);
 }
 
 /* Called after an asynchronous read from the FujiNet device has completed */
 
 static void fujiReadDone (IOParam *pb) {
-	long indicator = LED_ERROR;
-	if (pb->ioResult == noErr) {
+    long indicator = LED_ERROR;
+    if (pb->ioResult == noErr) {
 
-		const DCtlEntry *devCtlEnt = getMainDCE();
-		struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+        const DCtlEntry *devCtlEnt = getMainDCE();
+        struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
 
-		if (data->readData.id == MAC_FUJI_REPLY_TAG) {
-			data->readPos        = 0;
-			data->readAvail      = 0;
-			data->readLeft       = data->readData.avail;
+        if (data->readData.id == MAC_FUJI_REPLY_TAG) {
+            data->readPos        = 0;
+            data->readAvail      = 0;
+            data->readLeft       = data->readData.avail;
 
-			// The Pico will always report the total available bytes, even
-			// when the maximum message size is 500. Store the number of bytes
-			// in the read buffer in readLeft, with the overflow in readAvail.
+            // The Pico will always report the total available bytes, even
+            // when the maximum message size is 500. Store the number of bytes
+            // in the read buffer in readLeft, with the overflow in readAvail.
 
-			if (data->readLeft > NELEMENTS(data->readData.payload)) {
-				data->readAvail  = data->readLeft - NELEMENTS(data->readData.payload);
-				data->readLeft   = NELEMENTS(data->readData.payload);
-			}
+            if (data->readLeft > NELEMENTS(data->readData.payload)) {
+                data->readAvail  = data->readLeft - NELEMENTS(data->readData.payload);
+                data->readLeft   = NELEMENTS(data->readData.payload);
+            }
 
-			data->scheduleDriverWake = true;
-			indicator = LED_IDLE;
-		}
-		else {
-			indicator = LED_WRONG_TAG;
-			pb->ioResult = -1;
-		}
-	}
-	releaseVblMutex();
-	schedVBLTask();
-	VBL_READ_INDICATOR (indicator);
+            data->scheduleDriverWake = true;
+            indicator = LED_IDLE;
+        }
+        else {
+            indicator = LED_WRONG_TAG;
+            pb->ioResult = -1;
+        }
+    }
+    releaseVblMutex();
+    schedVBLTask();
+    VBL_READ_INDICATOR (indicator);
 }
 
 /********** Device driver routines **********/
 
 static OSErr doControl (CntrlParam *pb, DCtlEntry *devCtlEnt) {
-	//struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+    //struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
 
     //HUnlock (data->fuji);
     //HUnlock (devCtlEnt->dCtlStorage);
@@ -511,32 +511,32 @@ static OSErr doControl (CntrlParam *pb, DCtlEntry *devCtlEnt) {
 }
 
 static OSErr doStatus (CntrlParam *pb, DCtlEntry *devCtlEnt) {
-	struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+    struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
 
-	if (pb->csCode == 2) {
+    if (pb->csCode == 2) {
 
-		// SetGetBuff: Return how much data is available
+        // SetGetBuff: Return how much data is available
 
-		pb->csParam[0] = 0;                                // High order-word
-	#if REPORT_EXTRA
-		pb->csParam[1] = data->readLeft + data->readAvail; // Low order-word
-	#else
-		pb->csParam[1] = data->readLeft;
-	#endif
+        pb->csParam[0] = 0;                                // High order-word
+    #if REPORT_EXTRA
+        pb->csParam[1] = data->readLeft + data->readAvail; // Low order-word
+    #else
+        pb->csParam[1] = data->readLeft;
+    #endif
 
-	} else if (pb->csCode == 8) {
+    } else if (pb->csCode == 8) {
 
-		// SerStatus: Obtain status information from the serial driver
+        // SerStatus: Obtain status information from the serial driver
 
-		SerStaRec *status = (SerStaRec *) &pb->csParam[0];
-		status->rdPend  = 0;
-		status->wrPend  = 0;
-		status->ctsHold = 0;
-		status->cumErrs = 0;
-		status->cumErrs  = 0;
-		status->xOffSent = 0;
-		status->xOffHold = 0;
-	}
+        SerStaRec *status = (SerStaRec *) &pb->csParam[0];
+        status->rdPend  = 0;
+        status->wrPend  = 0;
+        status->ctsHold = 0;
+        status->cumErrs = 0;
+        status->cumErrs  = 0;
+        status->xOffSent = 0;
+        status->xOffHold = 0;
+    }
     //HUnlock (data->fuji);
     //HUnlock (devCtlEnt->dCtlStorage);
     //HUnlock ((Handle)devCtlEnt->dCtlDriver);
@@ -544,123 +544,123 @@ static OSErr doStatus (CntrlParam *pb, DCtlEntry *devCtlEnt) {
 }
 
 static OSErr doPrime (IOParam *pb, DCtlEntry *devCtlEnt) {
-	OSErr err = ioInProgress;
+    OSErr err = ioInProgress;
 
-	if (takeVblMutex()) {
-		struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
-		const short cmd = pb->ioTrap & 0x00FF;
-		long bytesToProcess = pb->ioReqCount - pb->ioActCount;
+    if (takeVblMutex()) {
+        struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+        const short cmd = pb->ioTrap & 0x00FF;
+        long bytesToProcess = pb->ioReqCount - pb->ioActCount;
 
-		#if SANITY_CHECK
-			if (pb->ioReqCount < 0) {
-				SysBeep(10);
-				bytesToProcess = 0;
-			}
+        #if SANITY_CHECK
+            if (pb->ioReqCount < 0) {
+                SysBeep(10);
+                bytesToProcess = 0;
+            }
 
-			if (pb->ioActCount < 0) {
-				SysBeep(10);
-				bytesToProcess = 0;
-			}
+            if (pb->ioActCount < 0) {
+                SysBeep(10);
+                bytesToProcess = 0;
+            }
 
-			if (bytesToProcess < 0) {
-				SysBeep(10);
-				bytesToProcess = 0;
-			}
-		#endif
+            if (bytesToProcess < 0) {
+                SysBeep(10);
+                bytesToProcess = 0;
+            }
+        #endif
 
-		if (cmd == aWrCmd) {
-			const long writeLeft = NELEMENTS(data->writeData.payload) - data->writePos;
-			if (bytesToProcess > writeLeft) {
-				bytesToProcess = writeLeft;
-			}
-			if (bytesToProcess > 0) {
-				BlockMove (
-					pb->ioBuffer + pb->ioActCount,
-					data->writeData.payload + data->writePos,
-					bytesToProcess
-				);
-				data->writePos     += bytesToProcess;
-				data->bytesWritten += bytesToProcess;
-			}
-		} // aWrCmd
+        if (cmd == aWrCmd) {
+            const long writeLeft = NELEMENTS(data->writeData.payload) - data->writePos;
+            if (bytesToProcess > writeLeft) {
+                bytesToProcess = writeLeft;
+            }
+            if (bytesToProcess > 0) {
+                BlockMove (
+                    pb->ioBuffer + pb->ioActCount,
+                    data->writeData.payload + data->writePos,
+                    bytesToProcess
+                );
+                data->writePos     += bytesToProcess;
+                data->bytesWritten += bytesToProcess;
+            }
+        } // aWrCmd
 
-		else if (cmd == aRdCmd) {
-			if (bytesToProcess > data->readLeft) {
-				bytesToProcess = data->readLeft;
-			}
-			if (bytesToProcess > 0) {
-				BlockMove (
-					data->readData.payload + data->readPos,
-					pb->ioBuffer + pb->ioActCount,
-					bytesToProcess
-				);
-				data->readPos   += bytesToProcess;
-				data->readLeft  -= bytesToProcess;
-				data->bytesRead += bytesToProcess;
-			}
-		} // aRdCmd
+        else if (cmd == aRdCmd) {
+            if (bytesToProcess > data->readLeft) {
+                bytesToProcess = data->readLeft;
+            }
+            if (bytesToProcess > 0) {
+                BlockMove (
+                    data->readData.payload + data->readPos,
+                    pb->ioBuffer + pb->ioActCount,
+                    bytesToProcess
+                );
+                data->readPos   += bytesToProcess;
+                data->readLeft  -= bytesToProcess;
+                data->bytesRead += bytesToProcess;
+            }
+        } // aRdCmd
 
-		else {
-			// Unknown command
-			goto error;
-		}
+        else {
+            // Unknown command
+            goto error;
+        }
 
-		pb->ioActCount += bytesToProcess;
+        pb->ioActCount += bytesToProcess;
 
-		if (data->conn.iopb.ioResult != noErr) {
-			err = data->conn.iopb.ioResult;
-		} else if (pb->ioActCount == pb->ioReqCount) {
-			err = noErr;
-		} else {
-			// We are blocked because the buffers are either
-			// full or empty, schedule the VBL task ASAP to
-			// remedy this.
-			schedVBLTask();
-		}
+        if (data->conn.iopb.ioResult != noErr) {
+            err = data->conn.iopb.ioResult;
+        } else if (pb->ioActCount == pb->ioReqCount) {
+            err = noErr;
+        } else {
+            // We are blocked because the buffers are either
+            // full or empty, schedule the VBL task ASAP to
+            // remedy this.
+            schedVBLTask();
+        }
 
-	error:
-		pb->ioResult = err;
-		releaseVblMutex();
-	} // takeVblMutex
+    error:
+        pb->ioResult = err;
+        releaseVblMutex();
+    } // takeVblMutex
 
     return err;
 }
 
 static OSErr doOpen (IOParam *pb, DCtlEntry *dce) {
-	struct FujiSerData *data;
+    struct FujiSerData *data;
 
-	// Make sure the dCtlStorage was populated by the FujiNet DA
+    // Make sure the dCtlStorage was populated by the FujiNet DA
 
-	if (dce->dCtlStorage == 0L) {
-		return openErr;
-	}
+    if (dce->dCtlStorage == 0L) {
+        return openErr;
+    }
 
-	HLock (dce->dCtlStorage);
+    HLock (dce->dCtlStorage);
 
-	// Make sure the port is configured correctly
+    // Make sure the port is configured correctly
 
-	data = *(FujiSerDataHndl)dce->dCtlStorage;
-	if (data->conn.iopb.ioRefNum == 0L) {
-		return portNotCf;
-	}
+    data = *(FujiSerDataHndl)dce->dCtlStorage;
+    if (data->conn.iopb.ioRefNum == 0L) {
+        return portNotCf;
+    }
 
-	// Figure out which driver we are opening
-	//if (data->mainDrvrRefNum == dce->dCtlRefNum) {
-	//	dce->dCtlFlags |= dNeedLockMask;
-	//}
+    // Figure out which driver we are opening
+    //if (data->mainDrvrRefNum == dce->dCtlRefNum) {
+    //  dce->dCtlFlags |= dNeedLockMask;
+    //}
 
-	// Start the VBL task
-	data->conn.iopb.ioResult = noErr;
+    // Start the VBL task
+    data->conn.iopb.ioResult = noErr;
 
-	if (data->vblCount == 0) {
-		data->vblCount = VBL_TICKS;
-	}
+    if (data->vblCount == 0) {
+        data->vblCount = VBL_TICKS;
+    }
 
-	fujiStartVBL (dce);
+    fujiStartVBL (dce);
 
-	return noErr;
+    return noErr;
 }
 
 static OSErr doClose (IOParam *pb, DCtlEntry *devCtlEnt) {
-	return noErr;
+    return noErr;
 }

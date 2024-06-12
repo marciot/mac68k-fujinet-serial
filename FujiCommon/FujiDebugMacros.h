@@ -18,13 +18,13 @@
 #pragma once
 
 #if DEBUG
-	#include <stdio.h>
-	#define DEBUG_STAGE(a) {printf(a " (press key to proceed)\n"); getchar();}
-	#define ON_ERROR(a) if (err != noErr) {printf("%s %d line %d\n", errorStr(err), err, __LINE__); a;}
-	#define CHECK_ERR ON_ERROR(return err)
-	char *errorStr(OSErr err);
+    #include <stdio.h>
+    #define DEBUG_STAGE(a) {printf(a " (press key to proceed)\n"); getchar();}
+    #define ON_ERROR(a) if (err != noErr) {printf("%s %d line %d\n", errorStr(err), err, __LINE__); a;}
+    #define CHECK_ERR ON_ERROR(return err)
+    char *errorStr(OSErr err);
 #else
-	#define DEBUG_STAGE(a)
-	#define ON_ERROR(a) if (err != noErr) {a;}
-	#define CHECK_ERR ON_ERROR(return err)
+    #define DEBUG_STAGE(a)
+    #define ON_ERROR(a) if (err != noErr) {a;}
+    #define CHECK_ERR ON_ERROR(return err)
 #endif

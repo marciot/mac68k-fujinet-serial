@@ -41,40 +41,40 @@
 #define DFlags dWritEnableMask | dReadEnableMask | dStatEnableMask | dCtlEnableMask
 
 void main() {
-	asm {
+    asm {
 
-		// Driver Header: "Inside Macintosh: Devices", p I-25
+        // Driver Header: "Inside Macintosh: Devices", p I-25
 
-		dc.w    DFlags                          ; flags
-		dc.w    0x0000                          ; periodic ticks
-		dc.w    0x0000                          ; DA event mask
-		dc.w    0x0000                          ; menuID of DA menu
-		dc.w    @DOpen    +  8                  ; open offset
-		dc.w    @DPrime   + 10                  ; prime offset
-		dc.w    @DControl + 12                  ; control offset
-		dc.w    @DStatus  + 14                  ; status offset
-		dc.w    @DClose   + 16                  ; close offset
-		dc.b    "\p.Fuji"                       ; driver name
+        dc.w    DFlags                          ; flags
+        dc.w    0x0000                          ; periodic ticks
+        dc.w    0x0000                          ; DA event mask
+        dc.w    0x0000                          ; menuID of DA menu
+        dc.w    @DOpen    +  8                  ; open offset
+        dc.w    @DPrime   + 10                  ; prime offset
+        dc.w    @DControl + 12                  ; control offset
+        dc.w    @DStatus  + 14                  ; status offset
+        dc.w    @DClose   + 16                  ; close offset
+        dc.b    "\p.Fuji"                       ; driver name
 
-	DOpen:    bsr.s @Dispatch
-	DPrime:   bsr.s @Dispatch
-	DControl: bsr.s @Dispatch
+    DOpen:    bsr.s @Dispatch
+    DPrime:   bsr.s @Dispatch
+    DControl: bsr.s @Dispatch
     DStatus:  bsr.s @Dispatch
-	DClose:   bsr.s @Dispatch
+    DClose:   bsr.s @Dispatch
 
     drvrHndl: dc.l 0x01234567                   ; placeholder for driver handle
 
-	Dispatch:
-		move.l      (sp)+,d0                    ; pop return address into d0
-		move.l         a2,-(sp)                 ; save registers
-		lea       @DPrime,a2                    ; subtract address of DPrime from return address
-		sub.l          a2,d0                    ; ...d0 will be 0,2,4,6,8 for Open, Prime, Control...
-		movea.l  @drvrHndl,a2                   ; get destination driver handle
-		movea.l       (a2),a2                   ; dereference to driver header pointer
-		move.w DRVRHeader.drvrOpen(a2,d0),d0    ; get entry routine offset from driver header
-		add.l          a2,d0                    ; add driver base pointer to offset
-		move.l      (sp)+,a2                    ; restore registers
-		move.l         d0,-(sp)                 ; push address to driver routine
-	   ;rts                                     ; jump to driver routine
-	}
+    Dispatch:
+        move.l      (sp)+,d0                    ; pop return address into d0
+        move.l         a2,-(sp)                 ; save registers
+        lea       @DPrime,a2                    ; subtract address of DPrime from return address
+        sub.l          a2,d0                    ; ...d0 will be 0,2,4,6,8 for Open, Prime, Control...
+        movea.l  @drvrHndl,a2                   ; get destination driver handle
+        movea.l       (a2),a2                   ; dereference to driver header pointer
+        move.w DRVRHeader.drvrOpen(a2,d0),d0    ; get entry routine offset from driver header
+        add.l          a2,d0                    ; add driver base pointer to offset
+        move.l      (sp)+,a2                    ; restore registers
+        move.l         d0,-(sp)                 ; push address to driver routine
+       ;rts                                     ; jump to driver routine
+    }
 }
