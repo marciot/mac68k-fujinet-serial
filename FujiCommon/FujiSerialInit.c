@@ -205,7 +205,7 @@ static OSErr installDCE (short unitNum, Handle drvrHdl, Handle drvrStorage) {
     return noErr;
 }
 
-/* Replace a serial driver with a stub driver that
+/* Replaces an existing or new driver with a stub driver that
  * forwards requests to the main FujiNet driver.
  */
 static OSErr installStubDriver (ConstStr255Param stubName) {
@@ -214,15 +214,15 @@ static OSErr installStubDriver (ConstStr255Param stubName) {
     DRVRHeader     *fujiHdr;
     unsigned long *stubHndlStorage;
     Handle         stubHndl;
+    short          stubNum;
 
     #if STANDALONE_FUJI_DRIVER
         const short fujiNum = findUnitNumberByName(FUJI_DRVR_NAME);
     #else
         const short fujiNum = findUnitNumberByName(MODEM_OUT_NAME);
     #endif
-    const short stubNum = findUnitNumberByName(stubName);
 
-    if ( (fujiNum != -1) && (stubNum != -1) ) {
+    if (fujiNum != -1) {
         // Load the stub driver
 
         Handle stubHndl = LoadDriverResource ('DRVR', FUJI_STUB_RSRC);
@@ -250,6 +250,16 @@ static OSErr installStubDriver (ConstStr255Param stubName) {
         BlockMove (stubName, ((DRVRHeader*)*stubHndl)->drvrName, stubName[0] + 1);
         ((DRVRHeader*)*stubHndl)->drvrDelay = fujiHdr->drvrDelay;
         ((DRVRHeader*)*stubHndl)->drvrFlags = fujiHdr->drvrFlags;
+
+        stubNum = findUnitNumberByName(stubName);
+        if (stubNum == -1) {
+            // Find space in the unit table
+            stubNum = findSpaceInUnitTable();
+            if (stubNum < 0) {
+                err = openErr;
+                goto error;
+            }
+        }
 
         err = installDCE (stubNum, stubHndl, fujiDCE->dCtlStorage);
         if (err) {
@@ -376,6 +386,10 @@ Boolean isFujiPrinterRedirected() {
     return getSerialDataHndl (PRNTR_OUT_NAME) != NULL;
 }
 
+Boolean isFujiMacTCPRedirected() {
+    return getSerialDataHndl (MACTCP_IP_NAME) != NULL;
+}
+
 Boolean isFujiConnected() {
     FujiSerDataHndl data = getFujiSerialDataHndl ();
     return data ? fujiReady (&(*data)->conn) : false;
@@ -387,6 +401,10 @@ OSErr fujiSerialRedirectModem () {
 
 OSErr fujiSerialRedirectPrinter () {
     return installStubDrivers (PRNTR_OUT_NAME, PRNTR_IN__NAME);
+}
+
+OSErr fujiSerialRedirectMacTCP () {
+    return installStubDriver (MACTCP_IP_NAME);
 }
 
 Boolean fujiSerialStats (unsigned long *bytesRead, unsigned long *bytesWritten) {

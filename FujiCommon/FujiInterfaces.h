@@ -24,6 +24,8 @@
 #define MODEM_IN__NAME "\p.AIn"
 #define PRNTR_OUT_NAME "\p.BOut"
 #define PRNTR_IN__NAME "\p.BIn"
+#define MACTCP_IP_NAME "\p.IPP"
+
 
 #define MAC_FUJI_KNOCK_SEQ     {0,70,85,74,73}   // Sequence of magic sector access
 #define MAC_FUJI_KNOCK_LEN     5                 // Length of magic sequence

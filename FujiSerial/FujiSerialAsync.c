@@ -21,6 +21,7 @@
 #include <Files.h>
 #include <Serial.h>
 #include <Retrace.h>
+#include <MacTCP.h>
 
 #include "FujiNet.h"
 #include "FujiInterfaces.h"
@@ -30,6 +31,9 @@
 #define REPORT_EXTRA      1 // SerGetBuff reports all unfetched bytes
 #define SANITY_CHECK      1 // Do additional error checking
 #define USE_VBL_INDICATOR 0 // Extra "led" indicator shows when VBL task is blocking
+#define USE_SERIAL_EXTRAS 0
+#define USE_IPP_UDP       0
+#define USE_IPP_TCP       0
 
 #define VBL_TICKS 30
 
@@ -502,7 +506,97 @@ static void fujiReadDone (IOParam *pb) {
 /********** Device driver routines **********/
 
 static OSErr doControl (CntrlParam *pb, DCtlEntry *devCtlEnt) {
-    //struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+    struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+
+    #if USE_SERIAL_EXTRAS
+        if (pb->csCode == 11) {
+            // SetClrBrk: Deassert the break state
+            //data->flags &= SER_BREAK_FLG;
+        }
+        else if (pb->csCode == 12) {
+            // SetSetBrk: Assert the break state
+            //data->flags |= SER_BREAK_FLG;
+        }
+        else if (pb->csCode == 10) {
+            // SerHShake: Set handshaking options
+        }
+        else if (pb->csCode == 14) {
+            // SerHShake: Set handshaking options w/ DTR
+        }
+    #endif
+    #if USE_IPP_UDP
+        if (pb->csCode == UDPCreate) { // 20
+            // .IPP UDPCreate: Opens a UDP stream
+        }
+        else if (pb->csCode == UDPRead) { // 21
+            // .IPP UDPRead: Retreives a datagram
+        }
+        else if (pb->csCode == UDPBfrReturn) { // 22
+            // .IPP UDPBfrReturn: Returns receive buffer
+        }
+        else if (pb->csCode == UDPWrite) { // 23
+            // .IPP UDPWrite: Sends a datagram
+        }
+        else if (pb->csCode == UDPRelease) { // 24
+            // .IPP UDPRelease: Closes a UDP stream
+        }
+        else if (pb->csCode == UDPMaxMTUSize) { // 25
+            // .IPP UDPMaxMTUSize: Returns the maximum size of an unfragmented datagram
+        }
+        else if (pb->csCode == UDPMaxMTUSize) { // 26
+            // .IPP UDPStatus: Undocumented
+        }
+        else if (pb->csCode == UDPMultiCreate) { // 27
+            // .IPP UDPMultiCreate: Creates UDP connections on a consecutive series of ports
+        }
+        else if (pb->csCode == UDPMultiSend) { // 28
+            // .IPP UDPMultiSend: Sends a datagram from a specified port
+        }
+        else if (pb->csCode == UDPMultiRead) { // 29
+            // .IPP UDPMultiRead: Receives data from a port created with the UDPMultiCreate
+        }
+    #endif
+    #if USE_IPP_TCP
+        if (pb->csCode == TCPCreate) { // 30
+            // .IPP TCPCreate: Opens a TCP stream
+        }
+        else if (pb->csCode == TCPPassiveOpen) { // 31
+            // .IPP TCPPassiveOpen: Listens for incoming connections
+        }
+        else if (pb->csCode == TCPActiveOpen) { // 32
+            // .IPP TCPActiveOpen: Initiates an outgoing connection
+        }
+        else if (pb->csCode == TCPSend) { // 34
+            // .IPP TCPSend: Sends data over the connection
+        }
+        else if (pb->csCode == TCPNoCopyRcv) { // 35
+            // .IPP TCPNoCopyRcv: Receives data without copying
+        }
+        else if (pb->csCode == TCPRcvBfrReturn) { // 36
+            // .IPP TCPRcvBfrReturn: Returns buffers from TCPNoCopyRcv
+        }
+        else if (pb->csCode == TCPRcv) { // 37
+            // .IPP TCPRcv: Receives data and copy to user buffers
+        }
+        else if (pb->csCode == TCPClose) { // 38
+            // .IPP TCPClose: Signals user has no more data to send on connection
+        }
+        else if (pb->csCode == TCPAbort) { // 39
+            // .IPP TCPAbort: Terminates a connection without attempting to send all outstanding data
+        }
+        else if (pb->csCode == TCPStatus) { // 40
+            // .IPP TCPStatus: Gather information about a specific connection
+        }
+        else if (pb->csCode == TCPExtendedStat) { // 41
+            // .IPP TCPExtendedStat: Undocumented
+        }
+        else if (pb->csCode == TCPRelease) { // 42
+            // .IPP TCPRelease: Closes a TCP stream
+        }
+        else if (pb->csCode == TCPGlobalInfo) { // 43
+            // .IPP TCPGlobalInfo: Retreive TCP parameters
+        }
+    #endif
 
     //HUnlock (data->fuji);
     //HUnlock (devCtlEnt->dCtlStorage);
