@@ -307,48 +307,40 @@ static void _vblRoutines (void) {
     }
 }
 
-/* Given a driver unit number, checks the unit to table to determine whether it is
- * a FujiNet driver and the inspects the I/O queue to see whether the driver has
- * incomplete I/O. If so, it calls the prime routine to complete the request and
- * then calls JIODone to inform the Device Manager the request is finished.
- */
-
-static void wakeUpDriver (short unitNum) {
-    Handle *table = (Handle*) UTableBase;
-    if (table [unitNum]) {
-        DCtlEntry *dce = (DCtlEntry*) *table[unitNum];
-
-        #define CANDIDATE_DRIVER_FLAGS dRAMBasedMask | dOpenedMask | drvrActiveMask
-
-        if ((dce->dCtlFlags & CANDIDATE_DRIVER_FLAGS) == CANDIDATE_DRIVER_FLAGS) {
-            if ((dce->dCtlStorage != NULL) && ((*(FujiSerDataHndl)dce->dCtlStorage)->id == 'FUJI')) {
-                IOParam *pb = (IOParam *) dce->dCtlQHdr.qHead;
-
-                // The following code is problematic, as there is a likelihood
-                // of the VBL interrupting the Device Manager while it is
-                // inserting an I/O request into the queue. The following checks
-                // seem to prevent a crash, but it is advisable to find a
-                // better way (maybe saving the dce and pb pointers for incomplete
-                // calls).
-
-                if (pb && (pb->ioResult == ioInProgress)) {
-                    OSErr err = doPrime (pb, dce);
-                    if (err != ioInProgress) {
-                        ioIsComplete (dce, err);
-                    }
-                }
-            }
+static struct DriverInfo *getDriverInfo (struct FujiSerData *data, short dCtlRefNum) {
+    struct DriverInfo *info;
+    for (info = data->drvrInfo; info->refNum; ++info) {
+        if (info->refNum == dCtlRefNum) {
+            break;
         }
     }
+    // Not found, add to the list
+    info->refNum = dCtlRefNum;
+    return info;
 }
 
 /* Wakes up all "FujiNet" drivers to give them a chance to complete queued I/O */
 
-static void wakeUpDrivers (void) {
+static void wakeUpDrivers (struct FujiSerData *data) {
+    struct DriverInfo *info;
+
     if (takeWakeMutex()) {
         releaseVblMutex();
-        wakeUpDriver (5); // Serial port A input
-        wakeUpDriver (6); // Serial port A output
+
+        for (info = data->drvrInfo; info->refNum; ++info) {
+            IOParam    *pb = info->pendingPb;
+            DCtlEntry *dce = info->pendingDce;
+
+            // Clear pendingPb before doPrime, as it may set it to a new value
+            info->pendingPb = 0;
+
+            if (pb) {
+                const OSErr err = doPrime (pb, dce);
+                if (err != ioInProgress) {
+                    ioIsComplete (dce, err);
+                }
+            }
+        }
         releaseWakeMutex();
     } else {
         releaseVblMutex();
@@ -413,7 +405,7 @@ static void fujiVBLTask (VBLTask *vbl) {
 
             else {
                 // Unblock drivers
-                wakeUpDrivers();
+                wakeUpDrivers (data);
                 data->scheduleDriverWake = false;
             }
         } // data->conn.iopb.ioResult == noErr
@@ -422,8 +414,8 @@ static void fujiVBLTask (VBLTask *vbl) {
             tkIndicator   = LED_ERROR;
 #endif
             // On error, keep waking the drivers so they can
-            // report the error but also slow the VBL Task
-            wakeUpDrivers();
+            // report the error
+            wakeUpDrivers (data);
         }
     } // takeVblMutex
 
@@ -638,10 +630,10 @@ static OSErr doStatus (CntrlParam *pb, DCtlEntry *devCtlEnt) {
 }
 
 static OSErr doPrime (IOParam *pb, DCtlEntry *devCtlEnt) {
+    struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
     OSErr err = ioInProgress;
 
     if (takeVblMutex()) {
-        struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
         const short cmd = pb->ioTrap & 0x00FF;
         long bytesToProcess = pb->ioReqCount - pb->ioActCount;
 
@@ -705,17 +697,25 @@ static OSErr doPrime (IOParam *pb, DCtlEntry *devCtlEnt) {
             err = data->conn.iopb.ioResult;
         } else if (pb->ioActCount == pb->ioReqCount) {
             err = noErr;
-        } else {
-            // We are blocked because the buffers are either
-            // full or empty, schedule the VBL task ASAP to
-            // remedy this.
-            schedVBLTask();
         }
 
     error:
         pb->ioResult = err;
         releaseVblMutex();
     } // takeVblMutex
+
+    if (err == ioInProgress) {
+        // Make a record that we are suspended so we can get awoken
+
+        struct DriverInfo *info = getDriverInfo (data, pb->ioRefNum);
+        info->pendingDce = devCtlEnt;
+        info->pendingPb  = pb;
+
+        // We are blocked because the buffers need servicing, schedule
+        // the VBL task ASAP to do this.
+
+        schedVBLTask();
+    }
 
     return err;
 }

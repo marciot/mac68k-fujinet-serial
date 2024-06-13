@@ -39,6 +39,12 @@
 #define MIN(a,b) ((a < b) ? a : b)
 #define NELEMENTS(a) (sizeof(a)/sizeof(a[0]))
 
+struct DriverInfo {
+    short              refNum;
+    IOParam           *pendingPb;
+    DCtlEntry         *pendingDce;
+};
+
 struct FujiConData {
     volatile IOParam   iopb;
     short              fRefNum;
@@ -48,7 +54,12 @@ struct FujiSerData {
     struct FujiConData conn;
     OSType             id;
 
-    short              mainDrvrRefNum;
+    /* Length of driver info table is one more than the
+     * number of drivers we may override:
+     *
+     * (.Fuji, .AOut, .AIn, .BOut., .Bin, .IPP) + 1 = 7
+     */
+    struct DriverInfo  drvrInfo[7];
 
     struct {
         OSType         id;

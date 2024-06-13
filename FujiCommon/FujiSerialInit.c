@@ -339,7 +339,7 @@ OSErr fujiSerialInstall () {
                 goto error;
             }
 
-            (*fujiData)->mainDrvrRefNum = fujiNum;
+            (*fujiData)->drvrInfo[0].refNum = fujiNum;
         #else
             // Install the main Fuji driver as the serial out driver
 
@@ -355,7 +355,7 @@ OSErr fujiSerialInstall () {
                 goto error;
             }
 
-            (*fujiData)->mainDrvrRefNum = fujiNum;
+            (*fujiData)->drvrInfo[0].refNum = fujiNum;
 
             // Install a stub driver as the serial in driver
 
