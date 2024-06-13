@@ -35,8 +35,6 @@
 
 // Menubar "led" indicators
 
-#include "LedIndicators.h"
-
 #define LED_IDLE       ind_hollow
 #define LED_ASYNC_IO   ind_solid
 #define LED_BLKED_IO   ind_dot
@@ -163,6 +161,8 @@ void main() {
         ;rts                                       ; close is always immediate, must return via RTS
     }
 }
+
+#include "LedIndicators.h" // Don't put this above main as it genererates code
 
 /********** Completion and VBL Routines **********/
 
