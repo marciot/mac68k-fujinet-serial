@@ -294,6 +294,7 @@ bool is_mac_ndev_io (uint8_t drive, uint32_t sector, uint8_t *tagPtr, uint8_t *b
         mac_ndev_state  = MAC_NDEV_WAIT_MAGIC_WRITE;
         mac_ndev_drive  = drive;
         mac_ndev_sector = 0;
+        printf("MacNDev: Will use drive number %d for I/O\n", mac_ndev_drive);
 
         // When the knocking sequence is complete, send
         // back special tags to let the host know a
@@ -363,6 +364,11 @@ bool is_mac_ndev_io (uint8_t drive, uint32_t sector, uint8_t *tagPtr, uint8_t *b
                 printf("MacNDev: Handshake complete.\n");
                 mac_ndev_state = MAC_NDEV_WAIT_MAGIC_SECTOR;
                 return true;
+            } else {
+                printf("MacNDev: Got %s to sector %ld, drive %d instead\n",
+                    mode  == MAC_NDEV_READ ? "read" : "write",
+                    sector, drive
+                );
             }
             break;
 

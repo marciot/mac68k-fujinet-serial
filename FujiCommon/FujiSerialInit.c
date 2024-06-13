@@ -183,6 +183,9 @@ static OSErr installDCE (short unitNum, Handle drvrHdl, Handle drvrStorage) {
         dceHdl = NewHandleSysClear (sizeof(DCtlEntry));
         HLock (dceHdl);
         if (dceHdl == NULL) {
+            #if DEBUG
+                printf("Failed to allocate DCE\n");
+            #endif
             return MemError();
         }
 
@@ -253,6 +256,9 @@ static OSErr installStubDriver (ConstStr255Param stubName) {
             goto error;
         }
     } else {
+        #if DEBUG
+            printf("Failed to find Fuji driver when initializing stub driver\n");
+        #endif
         return -1;
     }
     return err;
@@ -286,12 +292,18 @@ OSErr fujiSerialInstall () {
 
         fujiHndl = LoadDriverResource ('DRVR', FUJI_MAIN_RSRC);
         if (fujiHndl == NULL) {
+            #if DEBUG
+                printf("Failed to load driver resource\n");
+            #endif
             err = ResError();
             goto error;
         }
 
         fujiData = newFujiSerialDataHandle();
         if (fujiData == NULL) {
+            #if DEBUG
+                printf("Failed to allocate data handle\n");
+            #endif
             err = MemError();
             goto error;
         }
@@ -301,9 +313,16 @@ OSErr fujiSerialInstall () {
 
             fujiNum = findSpaceInUnitTable();
             if (fujiNum < 0) {
+                #if DEBUG
+                    printf("Failed find space in unit table\n");
+                #endif
                 err = openErr;
                 goto error;
             }
+
+            #if DEBUG
+                printf("Installing Fuji driver in unit number %d\n", fujiNum);
+            #endif
 
             err = installDCE (fujiNum, fujiHndl, (Handle)fujiData);
             if (err) {
@@ -391,6 +410,10 @@ OSErr fujiSerialOpen (short vRefNum) {
         if (err != noErr) {
             return err;
         }
+    } else {
+        #if DEBUG
+            printf("Fuji driver already installed\n");
+        #endif
     }
     data = getFujiSerialDataHndl ();
     if (data) {
@@ -398,5 +421,10 @@ OSErr fujiSerialOpen (short vRefNum) {
         err = fujiOpen (&(*data)->conn, vRefNum);
         HUnlock((Handle)data);
         return err;
+    } else {
+        #if DEBUG
+            printf("Failed to find Fuji driver after initialization\n");
+        #endif
+        return -1;
     }
 }
