@@ -27,7 +27,7 @@
 #include <Retrace.h>
 
 #define DEBUG                1
-#define BENCH_CHECK_MESSAGES 1
+#define BENCH_CHECK_MESSAGES 0
 #define BENCH_SHOW_OPERATION 0
 
 #include "FujiNet.h"
@@ -539,6 +539,7 @@ static OSErr testSerialThroughput(Boolean useSerGet) {
 				pb.ioParam.ioRefNum = sOutputRefNum;
 				pb.ioParam.ioBuffer  = (Ptr)msg;
 				pb.ioParam.ioReqCount = messageSize;
+				pb.ioParam.ioActCount = 1; // Test whether the driver needs to clear this
 				pb.ioParam.ioCompletion = 0;
 				pb.ioParam.ioVRefNum = 0;
 				pb.ioParam.ioPosMode = 0;
@@ -587,6 +588,7 @@ static OSErr testSerialThroughput(Boolean useSerGet) {
 					pb.ioParam.ioRefNum = sInputRefNum;
 					pb.ioParam.ioBuffer  = (Ptr) msg;
 					pb.ioParam.ioReqCount = availBytes;
+					pb.ioParam.ioActCount = 10; // Test whether the driver needs to clear this
 					pb.ioParam.ioCompletion = 0;
 					pb.ioParam.ioVRefNum = 0;
 					pb.ioParam.ioPosMode = 0;
