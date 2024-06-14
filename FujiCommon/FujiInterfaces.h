@@ -75,6 +75,7 @@ struct FujiSerData {
 	volatile long      readAvail;
 
 	volatile Boolean   scheduleDriverWake;
+	volatile Boolean   inWakeUp;
 
 	long               bytesWritten;
 	long               bytesRead;
