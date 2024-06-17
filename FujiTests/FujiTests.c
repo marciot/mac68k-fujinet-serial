@@ -169,7 +169,6 @@ static OSErr printDriverStatus() {
 	if (fujiSerialStats (&bytesRead, &bytesWritten)) {
 		FujiSerDataHndl data = getFujiSerialDataHndl ();
 		if (data) {
-			printf("Internal bytes avail: %d\n", (*data)->readAvail);
 			printf("Driver ref number     %d\n", (*data)->conn.iopb.ioRefNum);
 			printf("Drive number:         %d\n", (*data)->conn.iopb.ioVRefNum);
 			printf("Magic sector:         %ld\n", (*data)->conn.iopb.ioPosOffset / 512);
@@ -206,6 +205,32 @@ static OSErr setVBLFrequency() {
 	}
 }
 
+static OSErr testFujiWrite() {
+	short sFujiRefNum;
+	ParamBlockRec pb;
+	OSErr err;
+	unsigned char *msg = "\pThis is a test\r\n";
+
+	// Open the serial drivers
+
+	DEBUG_STAGE("Opening Fuji driver");
+
+	err = OpenDriver("\p.Fuji",  &sFujiRefNum); CHECK_ERR;
+
+	DEBUG_STAGE("Sending a message");
+
+	pb.ioParam.ioRefNum = sFujiRefNum;
+	pb.ioParam.ioBuffer  = (Ptr) &msg[1];
+	pb.ioParam.ioReqCount = msg[0];
+	pb.ioParam.ioCompletion = 0;
+	pb.ioParam.ioVRefNum = 0;
+	pb.ioParam.ioPosMode = 0;
+	err = PBWrite(&pb, false); CHECK_ERR;
+
+	//DEBUG_STAGE("Closing driver");
+
+	//CloseDriver(sFujiRefNum);
+}
 
 static OSErr testSerialDriver() {
 	const int kInputBufSIze = 1024;
@@ -216,7 +241,7 @@ static OSErr testSerialDriver() {
 	Str255 myBuffer;
 	Handle gInputBufHandle;
 	OSErr err;
-	unsigned char *msg = "\pThe Eagle has landed";
+	unsigned char *msg = "\pThe Eagle has landed\r\n";
 
 	// Open the serial drivers
 
@@ -231,7 +256,7 @@ static OSErr testSerialDriver() {
 
 	gInputBufHandle = NewHandle(kInputBufSIze);
 	HLock(gInputBufHandle);
-	SerSetBuf(sInputRefNum, *gInputBufHandle, kInputBufSIze); CHECK_ERR;
+	err = SerSetBuf(sInputRefNum, *gInputBufHandle, kInputBufSIze); CHECK_ERR;
 
 	// Set the handshaking options
 
@@ -243,13 +268,13 @@ static OSErr testSerialDriver() {
 	mySerShkRec.evts = 0;
 	mySerShkRec.fInX = 0;
 	mySerShkRec.fDTR = 0;
-	err = Control(sOutputRefNum, 14, &mySerShkRec);
+	err = Control(sOutputRefNum, 14, &mySerShkRec); CHECK_ERR;
 
 	// Configure the port
 
 	DEBUG_STAGE("Configuring the baud");
 
-	err = SerReset(sOutputRefNum, baud2400 + data8 + noParity + stop10);
+	err = SerReset(sOutputRefNum, baud2400 + data8 + noParity + stop10); CHECK_ERR;
 
 	// Send a message
 
@@ -267,7 +292,7 @@ static OSErr testSerialDriver() {
 
 	DEBUG_STAGE("Checking bytes available");
 
-	err = SerGetBuf(sInputRefNum, &readCount);
+	err = SerGetBuf(sInputRefNum, &readCount); CHECK_ERR;
 
 	printf("Bytes avail %ld\n", readCount);
 
@@ -291,18 +316,18 @@ static OSErr testSerialDriver() {
 
 	DEBUG_STAGE("Restoring buffer");
 
-	SerSetBuf(sInputRefNum, *gInputBufHandle, 0); CHECK_ERR;
+	err = SerSetBuf(sInputRefNum, *gInputBufHandle, 0); CHECK_ERR;
 	DisposeHandle(gInputBufHandle);
 
 	// Close Serial port
 	DEBUG_STAGE("Killing IO");
 
-	KillIO(sOutputRefNum);
+	err = KillIO(sOutputRefNum); CHECK_ERR;
 
 	DEBUG_STAGE("Closing driver");
 
-	CloseDriver(sInputRefNum);
-	CloseDriver(sOutputRefNum);
+	err = CloseDriver(sInputRefNum); CHECK_ERR;
+	err = CloseDriver(sOutputRefNum); CHECK_ERR;
 }
 
 static OSErr readSectorAndTags() {
@@ -644,6 +669,7 @@ char *errorStr(OSErr err) {
 		case controlErr:   return "Driver can't respond to control calls";   // -17
 		case readErr:      return "Driver can't respond to read calls";      // -19
 		case writErr:      return "Driver can't respond to write calls";     // -20
+		case notOpenErr:   return "Driver isn't open";                       // -28
 		case eofErr:       return "End of file";                             // -39
 		case nsDrvErr:     return "No such drive";
 		case fnfErr:       return "File not found error";                    // -43
@@ -656,6 +682,7 @@ char *errorStr(OSErr err) {
 		case offLinErr:    return "Read/write requested for offline drive";  // -65
 		case sectNFErr:    return "Sector number never found on a track";    // -81
 		case portInUse:    return "Port in use";                             // -97
+		case portNotCf:    return "Port not configured";                     // -98
 		case resNotFound:  return "Resource not found";                      // -192
 		default:           return "";
 	}
@@ -742,8 +769,9 @@ static OSErr miscChoice(char mode) {
 
 static OSErr fujiHelp() {
 	printf("1: Open FujiNet device\n");
-	printf("2: Test floppy port read/write\n");
-	printf("3: Test floppy port throughput\n");
+	printf("2: Test Fuji direct write\n");
+	printf("3: Test floppy port read/write\n");
+	printf("4: Test floppy port throughput\n");
 	printf("q: Main menu\n");
 	return noErr;
 }
@@ -751,8 +779,9 @@ static OSErr fujiHelp() {
 static OSErr fujiChoice(char mode) {
 	switch(mode) {
 		case '1': openFujiNet(); break;
-		case '2': testPortLoopback(); break;
-		case '3': testPortThroughput(); break;
+		case '2': testFujiWrite(); break;
+		case '3': testPortLoopback(); break;
+		case '4': testPortThroughput(); break;
 		default: -1;
 	}
 	return noErr;
