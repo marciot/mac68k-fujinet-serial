@@ -45,7 +45,6 @@
 
 #define VBL_WRIT_INDICATOR(symb) drawIndicatorAt (496, 1, symb);
 #define VBL_READ_INDICATOR(symb) drawIndicatorAt (496, 9, symb);
-#define VBL_TASK_INDICATOR(symb) drawIndicatorAt (488, 1, symb);
 
 // Driver flags and prototypes
 
@@ -344,18 +343,18 @@ static void fillReadBufDone (IOParam *pb) {
 	if (pb->ioResult == noErr) {
 
 		if (data->readData.id == MAC_FUJI_REPLY_TAG) {
-			const long readExcess = data->readData.avail - NELEMENTS(data->readData.payload);
-			data->readPos         = 0;
-			data->readAvail       = 0;
-			data->readLeft        = data->readData.avail;
+			const long readExtraAvail    = data->readData.avail - NELEMENTS(data->readData.payload);
+			data->readStorage.ioActCount = 0;
+			data->readStorage.ioReqCount = data->readData.avail;
+			data->readExtraAvail         = 0;
 
 			// The Pico will always report the total available bytes, even
 			// when the maximum message size is 500. Store the number of bytes
 			// in the read buffer in readLeft, with the overflow in readAvail.
 
-			if (readExcess > 0) {
-				data->readAvail  = readExcess;
-				data->readLeft   = NELEMENTS(data->readData.payload);
+			if (readExtraAvail > 0) {
+				data->readExtraAvail         = readExtraAvail;
+				data->readStorage.ioReqCount = NELEMENTS(data->readData.payload);
 			}
 			indicator = LED_IDLE;
 		}
@@ -385,7 +384,7 @@ static void emptyWriteBuffer(struct FujiSerData *data) {
 	data->writeData.src          = 0;
 	data->writeData.dst          = 0;
 	data->writeData.reserved     = 0;
-	data->writeData.length       = data->writePos;
+	data->writeData.length       = data->writeStorage.ioActCount;
 
 	VBL_WRIT_INDICATOR (LED_ASYNC_IO);
 	PBWriteAsync ((ParmBlkPtr)&data->conn.iopb);
@@ -398,10 +397,10 @@ static void emptyWriteBufDone (IOParam *pb) {
 	long wrIndicator = LED_ERROR;
 
 	if (pb->ioResult == noErr) {
-		data->writePos       = 0;
-		wrIndicator          = LED_IDLE;
+		data->writeStorage.ioActCount = 0;
+		wrIndicator                   = LED_IDLE;
 
-		if (data->readLeft == 0) {
+		if (data->readStorage.ioActCount == data->readStorage.ioReqCount) {
 			VBL_WRIT_INDICATOR (wrIndicator);
 
 			// After writing data, immediately do a read if the buffer is empty
@@ -430,11 +429,11 @@ static void fujiVBLTask (VBLTask *vbl) {
 
 	if (takeVblMutex()) {
 		if (data->conn.iopb.ioResult == noErr) {
-			if (data->writePos > 0) {
+			if (data->writeStorage.ioActCount > 0) {
 				emptyWriteBuffer(data);
 				return;
 			}
-			else if (data->readLeft == 0) {
+			else if (data->readStorage.ioActCount == data->readStorage.ioReqCount) {
 				fillReadBuffer(data);
 				return;
 			}
@@ -599,7 +598,7 @@ static OSErr doStatus (CntrlParam *pb, DCtlEntry *devCtlEnt) {
 		// SetGetBuff: Return how much data is available
 
 		pb->csParam[0] = 0;                                // High order-word
-		pb->csParam[1] = data->readLeft + data->readAvail; // Low order-word
+		pb->csParam[1] = (data->readStorage.ioReqCount - data->readStorage.ioActCount) + data->readExtraAvail; // Low order-word
 
 	}
 	#if USE_AOUT_EXTRAS
@@ -626,78 +625,71 @@ static OSErr doStatus (CntrlParam *pb, DCtlEntry *devCtlEnt) {
 	return noErr;
 }
 
+static void bufferCopy (struct StorageSpec *src, struct StorageSpec *dst) {
+	const long srcLeft = src->ioReqCount - src->ioActCount;
+	long       dstLeft = dst->ioReqCount - dst->ioActCount;
+
+	#if SANITY_CHECK
+		if (dst->ioReqCount < 0) {
+			SysBeep(10);
+			dstLeft = 0;
+		}
+
+		if (dst->ioActCount < 0) {
+			SysBeep(10);
+			dstLeft = 0;
+		}
+
+		if (bytesToProcess < 0) {
+			SysBeep(10);
+			dstLeft = 0;
+		}
+	#endif
+
+	if (dstLeft > srcLeft) {
+		dstLeft = srcLeft;
+	}
+	if (dstLeft > 0) {
+		BlockMove (
+			src->ioBuffer + src->ioActCount,
+			dst->ioBuffer + dst->ioActCount,
+			dstLeft
+		);
+	}
+	src->ioActCount += dstLeft;
+	dst->ioActCount += dstLeft;
+}
+
 static OSErr doPrime (IOParam *pb, DCtlEntry *devCtlEnt) {
 	struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
 	OSErr err = ioInProgress;
 
 	if (data->inWakeUp || takeVblMutex()) {
-		const short cmd = pb->ioTrap & 0x00FF;
-		long bytesToProcess = pb->ioReqCount - pb->ioActCount;
-
-		#if SANITY_CHECK
-			if (pb->ioReqCount < 0) {
-				SysBeep(10);
-				bytesToProcess = 0;
-			}
-
-			if (pb->ioActCount < 0) {
-				SysBeep(10);
-				bytesToProcess = 0;
-			}
-
-			if (bytesToProcess < 0) {
-				SysBeep(10);
-				bytesToProcess = 0;
-			}
-		#endif
-
-		if (cmd == aWrCmd) {
-			const long writeLeft = NELEMENTS(data->writeData.payload) - data->writePos;
-			if (bytesToProcess > writeLeft) {
-				bytesToProcess = writeLeft;
-			}
-			if (bytesToProcess > 0) {
-				BlockMove (
-					pb->ioBuffer + pb->ioActCount,
-					data->writeData.payload + data->writePos,
-					bytesToProcess
-				);
-				data->writePos     += bytesToProcess;
-				data->bytesWritten += bytesToProcess;
-			}
-		} // aWrCmd
-
-		else if (cmd == aRdCmd) {
-			if (bytesToProcess > data->readLeft) {
-				bytesToProcess = data->readLeft;
-			}
-			if (bytesToProcess > 0) {
-				BlockMove (
-					data->readData.payload + data->readPos,
-					pb->ioBuffer + pb->ioActCount,
-					bytesToProcess
-				);
-				data->readPos   += bytesToProcess;
-				data->readLeft  -= bytesToProcess;
-				data->bytesRead += bytesToProcess;
-			}
-		} // aRdCmd
-
-		else {
-			// Unknown command
-			goto error;
-		}
-
-		pb->ioActCount += bytesToProcess;
-
 		if (data->conn.iopb.ioResult != noErr) {
 			err = data->conn.iopb.ioResult;
-		} else if (pb->ioActCount == pb->ioReqCount) {
-			err = noErr;
-		}
+		} else {
+			const short cmd = pb->ioTrap & 0x00FF;
+			struct StorageSpec *src = 0, *dst;
+			if (cmd == aRdCmd) {
+				src = &data->readStorage;
+				dst = (struct StorageSpec*) &pb->ioBuffer;
+			} else if (cmd == aWrCmd) {
+				src = (struct StorageSpec*) &pb->ioBuffer;
+				dst = &data->writeStorage;
+			}
+			if (src) {
+				bufferCopy (src, dst);
+			}
+			if (pb->ioActCount == pb->ioReqCount) {
+				err = noErr;
 
-	error:
-		pb->ioResult = err;
+				if (cmd == aWrCmd) {
+					data->bytesWritten += pb->ioActCount;
+				} else {
+					data->bytesRead    += pb->ioActCount;
+				}
+			}
+		}
 
 		if (!data->inWakeUp) {
 			releaseVblMutex();
@@ -712,6 +704,7 @@ static OSErr doPrime (IOParam *pb, DCtlEntry *devCtlEnt) {
 		schedVBLTask();
 	}
 
+	pb->ioResult = err;
 	return err;
 }
 
@@ -744,6 +737,14 @@ static OSErr doOpen (IOParam *pb, DCtlEntry *dce) {
 	if (data->vblCount == 0) {
 		data->vblCount = VBL_TICKS;
 	}
+
+	data->readStorage.ioBuffer    = data->readData.payload;
+	data->readStorage.ioReqCount  = 0;
+	data->readStorage.ioActCount  = 0;
+
+	data->writeStorage.ioBuffer   = data->writeData.payload;
+	data->writeStorage.ioReqCount = NELEMENTS(data->writeData.payload);
+	data->writeStorage.ioActCount = 0;
 
 	fujiStartVBL (dce);
 
