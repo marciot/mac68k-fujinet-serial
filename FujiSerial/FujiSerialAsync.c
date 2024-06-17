@@ -33,7 +33,7 @@
 #define USE_IPP_UDP       0
 #define USE_IPP_TCP       0
 
-#define VBL_TICKS         30
+#define VBL_TICKS         30 // Note, setting this to 15 can cause issues
 
 // Menubar "led" indicators
 
@@ -446,7 +446,7 @@ static void fujiVBLTask (VBLTask *vbl) {
 /********** Device driver routines **********/
 
 static OSErr doControl (CntrlParam *pb, DCtlEntry *devCtlEnt) {
-	struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
+	//struct FujiSerData *data = *(FujiSerDataHndl)devCtlEnt->dCtlStorage;
 
 	#if USE_AOUT_EXTRAS
 		if (pb->csCode == 8) {
@@ -668,7 +668,7 @@ static OSErr doPrime (IOParam *pb, DCtlEntry *devCtlEnt) {
 		if (data->conn.iopb.ioResult != noErr) {
 			err = data->conn.iopb.ioResult;
 		} else {
-			const short cmd = pb->ioTrap & 0x00FF;
+			const unsigned char cmd = pb->ioTrap & 0x00FF;
 			struct StorageSpec *src = 0, *dst;
 			if (cmd == aRdCmd) {
 				src = &data->readStorage;
