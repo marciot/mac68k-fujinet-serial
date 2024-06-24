@@ -85,7 +85,8 @@
 
 #include <ctype.h>
 
-#define MAC_NDEV_LOOPBACK_TEST 1
+#define MAC_NDEV_LOOPBACK_TEST   0
+#define MAC_NDEV_USB_SERIAL_TEST 1
 
 #define MAC_NDEV_KNOCK_SEQ    {0,70,85,74,73}  // Macintosh -> FujiNet
 #define MAC_NDEV_REQUEST_TAG  "NDEV"           // Macintosh -> FujiNet
@@ -96,9 +97,9 @@
 #define MAC_NDEV_ESP32_CMD    'S'
 
 #define NELEMENTS(a) (sizeof(a)/sizeof(a[0]))
-#define CHARS_TO_UINT16(a,b) ((((uint16_t)a) << 8) | ((uint16_t)b) )
-#define UINT16_HI_BYTE(a) ((a & 0xFF00) >>  8)
-#define UINT16_LO_BYTE(a)  (a & 0x00FF)
+#define CHARS_TO_UINT16(a,b) ((((uint16_t)a) << 8) | (((uint16_t)(b)) & 0xFF))
+#define UINT16_HI_BYTE(a) (((a) >> 8) & 0xFF)
+#define UINT16_LO_BYTE(a) (((a)     ) & 0xFF)
 
 enum {
     MAC_NDEV_WAIT_KNOCK,
@@ -185,30 +186,80 @@ bool mac_ndev_detect_knock_sequence(uint32_t sector) {
     return false;
 }
 
+/***************************** Fifo Queue Object *****************************/
+
+typedef struct {
+    uint16_t fifoLen;
+    uint8_t  fifoData[2000];
+} FifoBuffer;
+
+uint16_t fifoBytesAvailable (FifoBuffer *fb) {
+    return fb->fifoLen;
+}
+
+uint16_t fifoSpaceLeft (FifoBuffer *fb) {
+    return NELEMENTS(fb->fifoData) - fb->fifoLen;
+}
+
+uint16_t fifoGetData (FifoBuffer *fb, uint8_t *buf, uint16_t len) {
+    const uint16_t dataToReturn = MIN(fb->fifoLen, len);
+    memcpy (buf, fb->fifoData, dataToReturn);
+    memmove (fb->fifoData, fb->fifoData + dataToReturn, fb->fifoLen - dataToReturn);
+    fb->fifoLen -= dataToReturn;
+    return dataToReturn;
+}
+
+void fifoPutData(FifoBuffer *fb, const uint8_t *buf, uint16_t len) {
+    if ((fb->fifoLen + len) <= NELEMENTS(fb->fifoData)) {
+        memcpy (fb->fifoData + fb->fifoLen, buf, len);
+        fb->fifoLen += len;
+    } else {
+        printf("MacNDev: Overflow in fifo buffer!\n");
+    }
+}
+
+void fifoPutChar (FifoBuffer *fb, char c) {
+    fifoPutData (fb, &c, 1);
+}
+
+/************************** End of Fifo Queue Object *************************/
+
 /* This function processes reads and writes to the special magic sector.
  */
 bool mac_ndev_magic_sector_io(uint8_t *tagPtr, uint8_t *blkPtr, mac_ndev_mode mode) {
     const uint16_t reqDat = 0x8000;
     uint16_t       len;
 
-    #if MAC_NDEV_LOOPBACK_TEST
-        static uint8_t  loopbackData[2000];
-        static uint16_t loopbackLen = 0;
+    #if MAC_NDEV_LOOPBACK_TEST || MAC_NDEV_USB_SERIAL_TEST
+        static FifoBuffer fifo = {0};
     #else
         static uint8_t ser_hdr[3] = {0};
     #endif
 
+   #if MAC_NDEV_USB_SERIAL_TEST
+        // There is no way to check how many bytes are available
+        // on the USB interface, so read them all into the FIFO
+        // queue so we can count them.
+        while (fifoSpaceLeft(&fifo)) {
+            int c = getchar_timeout_us(0);
+            if (c == PICO_ERROR_TIMEOUT) {
+                break;
+            }
+            fifoPutChar(&fifo, c);
+        }
+    #endif
+
     if (mode == MAC_NDEV_READ) {
-        #if MAC_NDEV_LOOPBACK_TEST
-            const uint16_t dataToReturn = MIN(loopbackLen, 512 - MAC_NDEV_HEADER_LEN);
-            memcpy (blkPtr + MAC_NDEV_HEADER_LEN, loopbackData, dataToReturn);
-            memmove (loopbackData, loopbackData + dataToReturn, loopbackLen - dataToReturn);
-            // Even though we are only returning dataToReturn bytes, we report back
+        #if MAC_NDEV_LOOPBACK_TEST || MAC_NDEV_USB_SERIAL_TEST
+            const uint16_t availBytes  = fifoBytesAvailable(&fifo);
+            const uint16_t bytesToRead = fifoGetData(&fifo, blkPtr + MAC_NDEV_HEADER_LEN, 512 - MAC_NDEV_HEADER_LEN);
+            // Even though we are only returning bytesToRead bytes, we report back
             // on the total number of available bytes.
-            mac_ndev_put_header (blkPtr, loopbackLen);
-            printf("MacNDev: Got I/O read request (loopback len = %d)\n", loopbackLen);
-            loopbackLen -= dataToReturn;
-            printHexDump (blkPtr + MAC_NDEV_HEADER_LEN, dataToReturn);
+            mac_ndev_put_header (blkPtr, availBytes);
+            #if MAC_NDEV_LOOPBACK_TEST
+                printf("MacNDev: Got I/O read request (availBytes = %d)\n", availBytes);
+                printHexDump (blkPtr + MAC_NDEV_HEADER_LEN, bytesToRead);
+            #endif
         #else
             // Serial message header
             ser_hdr[0]  = MAC_NDEV_ESP32_CMD;  // 'S'
@@ -235,19 +286,23 @@ bool mac_ndev_magic_sector_io(uint8_t *tagPtr, uint8_t *blkPtr, mac_ndev_mode mo
     else if (mode == MAC_NDEV_WRITE) {
         const bool headerInTags = mac_ndev_get_header(tagPtr, &len);
         if (headerInTags || mac_ndev_get_header(blkPtr, &len)) {
-            const uint8_t *payload = blkPtr + (headerInTags ? 0 : MAC_NDEV_HEADER_LEN);
+            const uint8_t headerSize = headerInTags ? 0 : MAC_NDEV_HEADER_LEN;
+            const uint8_t *payload = blkPtr + headerSize;
             if (!headerInTags) {
                 tagPtr = blkPtr;
             }
-            #if MAC_NDEV_LOOPBACK_TEST
-                printf("MacNDev: Got I/O write request (len = %d, pend = %d)\n", len, loopbackLen);
-                printHexDump (payload, len);
-                if ((loopbackLen + len) <= NELEMENTS(loopbackData)) {
-                    memcpy (loopbackData + loopbackLen, payload, len);
-                    loopbackLen += len;
-                } else {
-                    printf("MacNDev: Overflow in loopback buffer!\n");
+            if (len > (512 - headerSize)) {
+                printf("MacNDev: Got invalid write len (len = %d)\n", len);
+                len = 512 - headerSize;
+            }
+            #if MAC_NDEV_USB_SERIAL_TEST
+                for (int i = 0; i < len; i++) {
+                    putchar_raw (payload[i]);
                 }
+            #elif MAC_NDEV_LOOPBACK_TEST
+                printf("MacNDev: Got I/O write request (len = %d, pend = %d)\n", len, fifoBytesAvailable(&fifo));
+                printHexDump (payload, len);
+                fifoPutData(&fifo, payload, len);
             #else
                 printf("MacNDev: Got I/O write request (len = %d)\n", len);
                 // Serial message header
