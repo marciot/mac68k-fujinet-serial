@@ -343,19 +343,19 @@ static void fillReadBufDone (IOParam *pb) {
 	if (pb->ioResult == noErr) {
 
 		if (data->readData.id == MAC_FUJI_REPLY_TAG) {
-			const long readExtraAvail    = data->readData.avail - NELEMENTS(data->readData.payload);
-			data->readStorage.ioActCount = 0;
-			data->readStorage.ioReqCount = data->readData.avail;
-			data->readExtraAvail         = 0;
-
 			// The Pico will always report the total available bytes, even
 			// when the maximum message size is 500. Store the number of bytes
 			// in the read buffer in readLeft, with the overflow in readAvail.
 
-			if (readExtraAvail > 0) {
-				data->readExtraAvail         = readExtraAvail;
+			if (data->readData.avail > NELEMENTS(data->readData.payload)) {
+				data->readExtraAvail         = data->readData.avail - NELEMENTS(data->readData.payload);
 				data->readStorage.ioReqCount = NELEMENTS(data->readData.payload);
+			} else {
+				data->readStorage.ioReqCount = data->readData.avail;
+				data->readExtraAvail         = 0;
 			}
+			data->readStorage.ioActCount = 0;
+
 			indicator = LED_IDLE;
 		}
 		else {
@@ -434,7 +434,7 @@ static void fujiVBLTask (VBLTask *vbl) {
 				return;
 			}
 			else if (data->readStorage.ioActCount == data->readStorage.ioReqCount) {
-				fillReadBuffer(data);
+				fillReadBuffer (data);
 				return;
 			}
 		} // data->conn.iopb.ioResult == noErr
@@ -597,9 +597,8 @@ static OSErr doStatus (CntrlParam *pb, DCtlEntry *devCtlEnt) {
 
 		// SetGetBuff: Return how much data is available
 
-		pb->csParam[0] = 0;                                // High order-word
-		pb->csParam[1] = (data->readStorage.ioReqCount - data->readStorage.ioActCount) + data->readExtraAvail; // Low order-word
-
+		pb->csParam[0] = 0; // High order-word
+		pb->csParam[1] = (data->readStorage.ioReqCount - data->readStorage.ioActCount) + data->readExtraAvail;
 	}
 	#if USE_AOUT_EXTRAS
 		else if (pb->csCode == 8) {
@@ -640,7 +639,22 @@ static void bufferCopy (struct StorageSpec *src, struct StorageSpec *dst) {
 			dstLeft = 0;
 		}
 
-		if (bytesToProcess < 0) {
+		if (src->ioReqCount < 0) {
+			SysBeep(10);
+			dstLeft = 0;
+		}
+
+		if (src->ioActCount < 0) {
+			SysBeep(10);
+			dstLeft = 0;
+		}
+
+		if (srcLeft < 0) {
+			SysBeep(10);
+			dstLeft = 0;
+		}
+
+		if (dstLeft < 0) {
 			SysBeep(10);
 			dstLeft = 0;
 		}
@@ -649,6 +663,14 @@ static void bufferCopy (struct StorageSpec *src, struct StorageSpec *dst) {
 	if (dstLeft > srcLeft) {
 		dstLeft = srcLeft;
 	}
+
+	#if SANITY_CHECK
+		if (dstLeft > 500) {
+			SysBeep(10);
+			dstLeft = 0;
+		}
+	#endif
+
 	if (dstLeft > 0) {
 		BlockMove (
 			src->ioBuffer + src->ioActCount,
@@ -690,11 +712,10 @@ static OSErr doPrime (IOParam *pb, DCtlEntry *devCtlEnt) {
 				}
 			}
 		}
-
 		if (!data->inWakeUp) {
 			releaseVblMutex();
 		}
-	} // takeVblMutex
+	} // data->inWakeUp || takeVblMutex()
 
 	if (err == ioInProgress) {
 		// Make a record that we are suspended so we can get awoken
