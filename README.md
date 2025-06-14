@@ -35,7 +35,7 @@ Then, set either "MAC_NDEV_LOOPBACK_TEST" or "MAC_NDEV_USB_SERIAL_TEST" to 1, bu
 the operating mode. Setting both to 0 will cause the Pico to attempt to communicate data to the ESP32, but
 the receiving portion is not present either in FujiNet nor in this repo.
 
-Once the modified Pico firmware has been flashed, boot from either one of the disk images from the [latest release](release/)
+Once the modified Pico firmware has been flashed, boot from either one of the disk images from the [latest release](../../releases/latest)
 as a DCD volume using FujiNet. Then, open the "FujiNet" Desk Accessory. It will attempt to connect with Pico.
 Once "FujiNet Status" changes to "Connected", check either the "Modem Port" or "Printer Port" to redirect that
 port.
