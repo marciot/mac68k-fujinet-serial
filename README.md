@@ -81,16 +81,18 @@ drivers.**
 The [Desk Accessory] presents the UI to the user, but the job of loading
 the drivers into memory is handled by "FujiSerialInit.c" in [FujiCommon].
 The file "FujiFloppyInit.c" handles the block I/O operations that establish
-a connection to the Pico. These files currently live in the [FujiCommon]
-directory because in the future it might be possible to have other means
-beside the desk accessory to load FujiNet drivers (such as via a System
-Extension). "LedIndicators.h" is a small library for drawing the status
-icons on the menu bar. It is written mostly in assembly to be very, very
+a connection to the Pico. "LedIndicators.h" is a small library for drawing
+the status icons on the menu bar. It is written in assembly to be very, very
 small and fast.
 
-There is a [linux] directory with tools that can be run on a Linux host for
-testing when connected to the Pico via USB. It demonstrates how to make a loopback
-device.
+These files currently live in the [FujiCommon] directory because there is also
+a Macintosh test app in [FujiTests] that can be used for testing. It is capable
+of loading the drivers, independently of the Desk Accessory, while printing
+troubleshooting messages.
+
+There is a [linux] directory with tools that can be run on a Linux host
+for testing when connected to the Pico via USB. It demonstrates how to
+make a loopback device.
 
 [FujiNet project]: https://fujinet.online
 [FujiNet adapter]: https://github.com/djtersteegc/Apple-68k-FujiNet
@@ -98,7 +100,8 @@ device.
 [architecture]: https://github.com/marciot/mac68k-fujinet/raw/main/images/driver_diagram.svg "FujiNet Architecture"
 [linux]: linux/
 [pico]: pico/
+[FujiTests]: FujiTests
 [FujiCommon]: FujiCommon/
 [Desk Accessory]: FujiDeskAcc/FujiDeskAcc.c
-[stub]: FujiSerial/FujiNetStub.c
-[.Fuji]: FujiSerial/FujiNetAsync.c
+[stub]: FujiSerial/FujiSerialStub.c
+[.Fuji]: FujiSerial/FujiSerialAsync.c
