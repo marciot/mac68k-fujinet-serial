@@ -9,7 +9,7 @@ printer port. It can also install a virtual network driver, but this is just a n
 
 The virtual drivers then talk to the Pico residing on the [FujiNet adapter] via the floppy port,
 piggy-backing on ordinary DCD block I/O. With an appropriate code patch installed, the Pico will
-monitors read and write requests and treat access to certain blocks as a serial I/O.
+monitor read and write requests and treat access to certain blocks as a serial I/O.
 
 Presently, the Pico can operate in one of two modes:
 
@@ -33,7 +33,7 @@ These resources are in the [pico] directory.
 
 Then, set either "MAC_NDEV_LOOPBACK_TEST" or "MAC_NDEV_USB_SERIAL_TEST" to 1, but not both, to configure
 the operating mode. Setting both to 0 will cause the Pico to attempt to communicate data to the ESP32, but
-the receiving portion is not present either in FujiNet nor in FujiNet.
+the receiving portion is not present either in FujiNet nor in this repo.
 
 Once the modified Pico firmware has been flashed, boot from either one of the disk images from the [latest release](release/)
 as a DCD volume using FujiNet. Then, open the "FujiNet" Desk Accessory. It will attempt to connect with Pico.
@@ -61,8 +61,6 @@ The Apple drivers are written in assembly language and with the exception of .IP
 all their code stored in ROM. I wanted to write as much of my driver code in C as
 possible, while still making it small enough to fit on a 512 KB Mac or 128 KB Mac.
 
-![Driver Architecture][architecture]
-
 I wanted to made one driver, called [.Fuji], and have it handle the functions
 for all the native drivers I was going to patch. The name Mac OS uses to find
 a driver is embedded in a header preceeding the code, so it is not possible
@@ -72,10 +70,23 @@ but immediatly passes control to the main [.Fuji] driver. The stub driver, which
 is loaded into memory twice for each port, is only a few bytes, while the [.Fuji]
 driver is quite a bit larger.
 
+**NOTE: There are actually two versions of the [.Fuji] driver. "FujiSerialAsync.c"
+is the preferred one, but there is also a "FujiSerialBasic.c" which is an earlier
+attempt. It does not support asynchronous I/O, which is a major feature of Mac OS
+drivers.**
+
+
+![Driver Architecture][architecture]
+
 The [Desk Accessory] presents the UI to the user, but the job of loading
 the drivers into memory is handled by "FujiSerialInit.c" in [FujiCommon].
-The file "FujiFloppyInit.c" handles the block I/O operations which establish
-a connection to the Pico.
+The file "FujiFloppyInit.c" handles the block I/O operations that establish
+a connection to the Pico. These files currently live in the [FujiCommon]
+directory because in the future it might be possible to have other means
+beside the desk accessory to load FujiNet drivers (such as via a System
+Extension). "LedIndicators.h" is a small library for drawing the status
+icons on the menu bar. It is written mostly in assembly to be very, very
+small and fast.
 
 There is a [linux] directory with tools that can be run on a Linux host for
 testing when connected to the Pico via USB. It demonstrates how to make a loopback
