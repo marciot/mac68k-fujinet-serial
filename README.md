@@ -1,5 +1,5 @@
-mac68k-fujinet
-==============
+mac68k-fujinet-serial
+=====================
 
 This repository contains a set of experimental Macintosh drivers for the [FujiNet project]. The purpose
 of these drivers is to demonstrate a method of transmitting non-disk data through the floppy port.
@@ -7,17 +7,14 @@ of these drivers is to demonstrate a method of transmitting non-disk data throug
 The software consists of a Macintosh Desk Accessory that allows the user to create a virtual modem or
 printer port. It can also install a virtual network driver, but this is just a non-functional stub.
 
-The virtual drivers then talk to the Pico residing on the [FujiNet adapter] via the floppy port,
-piggy-backing on ordinary DCD block I/O. With an appropriate code patch installed, the Pico will
-monitor read and write requests and treat access to certain blocks as a serial I/O.
+The virtual drivers then talk to the ESP32 residing on the [FujiNet adapter] via the floppy port,
+piggy-backing on ordinary DCD block I/O. When used with a specially modified version of FujiNet,
+the ESP32 will monitor read and write requests and treat access to certain blocks as a serial I/O.
 
-Presently, the Pico can operate in one of two modes:
+Presently, the ESP32 can operate in one of two modes:
 
 1. It can act as a loopback interface, echoing back any received data
 2. Bridge the connection to an external host via the USB port
-3. Pass the data to the ESP32 for processing
-
-While 1 and 2 have been completed and demonstrated, 3 has only been roughed out and is non-functional.
 
 [![FujiNet Serial Demonstration](https://github.com/marciot/mac68k-fujinet/raw/main/images/youtube.png)](https://youtu.be/d1GNirCGzVg)
 
@@ -28,17 +25,15 @@ While 1 and 2 have been completed and demonstrated, 3 has only been roughed out 
 How To Install:
 ---------------
 
-To use this project, it is necessary to apply a small patch to the Pico code along with an additional header.
-These resources are in the [pico] directory.
+To use this project, it is necessary to use the "fujinet-floppy-serial-bridge" branch of my [FujiNet fork].
 
-Then, set either "MAC_NDEV_LOOPBACK_TEST" or "MAC_NDEV_USB_SERIAL_TEST" to 1, but not both, to configure
-the operating mode. Setting both to 0 will cause the Pico to attempt to communicate data to the ESP32, but
-the receiving portion is not present either in FujiNet nor in this repo.
+Then, set either "MAC_SERIAL_LOOPBACK_TEST" or "MAC_SERIAL_USB_SERIAL_TEST" in [floppy_serial_handler.cpp] to 1,
+but not both, to configure the operating mode.
 
-Once the modified Pico firmware has been flashed, boot from either one of the disk images from the [latest release](../../releases/latest)
-as a DCD volume using FujiNet. Then, open the "FujiNet" Desk Accessory. It will attempt to connect with Pico.
-Once "FujiNet Status" changes to "Connected", check either the "Modem Port" or "Printer Port" to redirect that
-port.
+Once the modified firmware has been flashed, boot from either one of the disk images from the
+[latest release](../../releases/latest) as a DCD volume using FujiNet. Then, open the "FujiNet" Desk Accessory.
+It will attempt to connect with Pico. Once "FujiNet Status" changes to "Connected", check either the "Modem Port"
+or "Printer Port" to redirect that port.
 
 **Selecting more than one at a time, or using the "MacTCP" option is not currently supported.**
 
@@ -94,12 +89,13 @@ There is a [linux] directory with tools that can be run on a Linux host
 for testing when connected to the Pico via USB. It demonstrates how to
 make a loopback device.
 
+[floppy_serial_handler.cpp]: https://github.com/marciot/fujinet-firmware/blob/6e289701f7c8e8d0bf71c6c6ffdf7b793a6349fb/lib/device/mac/floppy_serial_handler.cpp#L20
 [FujiNet project]: https://fujinet.online
 [FujiNet adapter]: https://github.com/djtersteegc/Apple-68k-FujiNet
+[FujiNet fork]: https://github.com/marciot/fujinet-firmware
 [demonstration]: https://www.youtube.com/watch?v=d1GNirCGzVg
 [architecture]: https://github.com/marciot/mac68k-fujinet/raw/main/images/driver_diagram.svg "FujiNet Architecture"
 [linux]: linux/
-[pico]: pico/
 [FujiTests]: FujiTests
 [FujiCommon]: FujiCommon/
 [Desk Accessory]: FujiDeskAcc/FujiDeskAcc.c
