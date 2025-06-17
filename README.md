@@ -30,10 +30,12 @@ To use this project, it is necessary to use the "fujinet-floppy-serial-bridge" b
 Then, set either "MAC_SERIAL_LOOPBACK_TEST" or "MAC_SERIAL_USB_SERIAL_TEST" in [floppy_serial_handler.cpp] to 1,
 but not both, to configure the operating mode.
 
-Once the modified firmware has been flashed, boot from either one of the disk images from the
+Once the modified firmware has been flashed, boot from any of the disk images from the
 [latest release](../../releases/latest) as a DCD volume using FujiNet. Then, open the "FujiNet" Desk Accessory.
-It will attempt to connect with Pico. Once "FujiNet Status" changes to "Connected", check either the "Modem Port"
+It will attempt to connect with FujiNet. Once "FujiNet Status" changes to "Connected", check either the "Modem Port"
 or "Printer Port" to redirect that port.
+
+You can then use one of the included programs or sample source code to experiment with the interface.
 
 **Selecting more than one at a time, or using the "MacTCP" option is not currently supported.**
 
@@ -76,7 +78,7 @@ drivers.**
 The [Desk Accessory] presents the UI to the user, but the job of loading
 the drivers into memory is handled by "FujiSerialInit.c" in [FujiCommon].
 The file "FujiFloppyInit.c" handles the block I/O operations that establish
-a connection to the Pico. "LedIndicators.h" is a small library for drawing
+a connection to the interface. "LedIndicators.h" is a small library for drawing
 the status icons on the menu bar. It is written in assembly to be very, very
 small and fast.
 
@@ -84,10 +86,6 @@ These files currently live in the [FujiCommon] directory because there is also
 a Macintosh test app in [FujiTests] that can be used for testing. It is capable
 of loading the drivers, independently of the Desk Accessory, while printing
 troubleshooting messages.
-
-There is a [linux] directory with tools that can be run on a Linux host
-for testing when connected to the Pico via USB. It demonstrates how to
-make a loopback device.
 
 [floppy_serial_handler.cpp]: https://github.com/marciot/fujinet-firmware/blob/6e289701f7c8e8d0bf71c6c6ffdf7b793a6349fb/lib/device/mac/floppy_serial_handler.cpp#L20
 [FujiNet project]: https://fujinet.online
